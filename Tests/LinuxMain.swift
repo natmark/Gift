@@ -1,7 +1,7 @@
 import XCTest
 
-import GiftTests
+import GiftKitTests
 
 var tests = [XCTestCaseEntry]()
-tests += GiftTests.allTests()
+tests += GiftKitTests.allTests()
 XCTMain(tests)
