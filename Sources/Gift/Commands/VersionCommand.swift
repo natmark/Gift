@@ -7,18 +7,14 @@
 
 import Result
 import Commandant
-
-public struct Version {
-    public let value: String
-    public static let current = Version(value: "0.0.1")
-}
+import GiftKit
 
 struct VersionCommand: CommandProtocol {
     let verb = "version"
     let function = "Display the current version of Gift"
 
     func run(_ options: NoOptions<CommandantError<()>>) -> Result<(), CommandantError<()>> {
-        print(Version.current.value)
+        print(GiftKitVersion.current.value)
         return .success(())
     }
 }
