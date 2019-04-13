@@ -12,10 +12,12 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Carthage/Commandant.git", from: "0.15.0"),
+        .package(url: "https://github.com/thoughtbot/Curry.git", from: "4.0.1"),
+        .package(url: "https://github.com/Bouke/INI.git", from: "1.2.0"),
     ],
     targets: [
-        .target(name: "gift", dependencies: ["Commandant", "GiftKit"]),
-        .target(name: "GiftKit", dependencies: []),
+        .target(name: "gift", dependencies: ["Commandant", "Curry", "GiftKit"]),
+        .target(name: "GiftKit", dependencies: ["INI"]),
         .testTarget(name: "GiftKitTests", dependencies: ["GiftKit"]),
     ]
 )
