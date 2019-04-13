@@ -8,6 +8,7 @@
 import Foundation
 
 public struct RepositoryOperation {
+    @discardableResult
     public static func createRepository(workTreeURL: URL) throws -> Repository {
         let repository = try Repository(workTreeURL: workTreeURL, checkRepository: false)
 
@@ -15,7 +16,7 @@ public struct RepositoryOperation {
             if !repository.workTreeURL.isDirectory {
                 throw RepositoryError.isNotDirectory
             }
-            if let _ = try? repository.workTreeURL.contents() {
+            if let contents = try? repository.workTreeURL.contents(), !contents.isEmpty {
                 throw RepositoryError.isNotEmpty
             }
         } else {

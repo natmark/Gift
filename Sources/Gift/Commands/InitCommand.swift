@@ -21,10 +21,9 @@ struct InitCommand: CommandProtocol {
     func run(_ options: InitCommand.Options) -> Result<(), InitCommand.ClientError> {
         let worktreeURL = URL(fileURLWithPath: options.path)
         do {
-            let repository = try RepositoryOperation.createRepository(workTreeURL: worktreeURL)
-            print(repository)
-        } catch {
-            print("Directory is not empty")
+            try RepositoryOperation.createRepository(workTreeURL: worktreeURL)
+        } catch let error {
+            print(error)
         }
 
         return .success(())

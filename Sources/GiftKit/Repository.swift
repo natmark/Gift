@@ -20,16 +20,15 @@ public struct Repository {
         self.workTreeURL = workTreeURL
         self.gitDirectoryURL = workTreeURL.appendingPathComponent(".git")
 
-        if disableAllCheck || !gitDirectoryURL.isExist || !gitDirectoryURL.isDirectory {
+        if !disableAllCheck && !gitDirectoryURL.isDirectory {
             throw RepositoryError.notGitRepository(workTreeURL.path)
         }
 
         let configURL = gitDirectoryURL.appendingPathComponent("config")
-        if disableAllCheck {
-            throw RepositoryError.configFileMissing
-        }
         if configURL.isExist {
             self.config = GitConfig(from: configURL)
+        } else if !disableAllCheck {
+            throw RepositoryError.configFileMissing
         }
 
         if disableAllCheck { return }
