@@ -15,7 +15,7 @@ final class GitConfigTests: XCTestCase {
 
     func testWriteConfig() throws {
         let resourceURL = Bundle(for: type(of: self)).resourceURL!
-        let writeURL = resourceURL.appendingPathComponent("TestConfig", isDirectory: false)
+        var writeURL = resourceURL.appendingPathComponent("TestConfig", isDirectory: false)
         let config = GitConfig()
 
         config.set(sectionName: "core", key: "repositoryformatversion", value: "0")
@@ -24,8 +24,14 @@ final class GitConfigTests: XCTestCase {
         config.set(sectionName: "branch \"master\"", key: "remote", value: "origin")
         config.set(sectionName: "branch \"master\"", key: "merge", value: "refs/heads/master")
 
-        XCTAssertNoThrow(try config.write(to: writeURL), "config write")
-        XCTAssertNoThrow(GitConfig(from: writeURL), "config read")
+        do {
+            try config.write(to: writeURL)
+        } catch {
+            // For Bitrise CI
+            writeURL = URL(fileURLWithPath: #file).deletingLastPathComponent().appendingPathComponent("TestConfig")
+            try config.write(to: writeURL)
+        }
+
         let loadedConfig = GitConfig(from: writeURL)
 
         XCTAssertEqual(loadedConfig["core"]?["repositoryformatversion"], "0")
