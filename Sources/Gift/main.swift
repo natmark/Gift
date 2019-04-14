@@ -3,6 +3,7 @@ import Commandant
 
 let registry = CommandRegistry<CommandantError<()>>()
 registry.register(VersionCommand())
+registry.register(InitCommand())
 
 let helpCommand = HelpCommand(registry: registry)
 registry.register(helpCommand)

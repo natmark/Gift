@@ -11,12 +11,39 @@
         }
       },
       {
+        "package": "Curry",
+        "repositoryURL": "https://github.com/thoughtbot/Curry.git",
+        "state": {
+          "branch": null,
+          "revision": "4331dd50bc1db007db664a23f32e6f3df93d4e1a",
+          "version": "4.0.2"
+        }
+      },
+      {
+        "package": "INI",
+        "repositoryURL": "https://github.com/Bouke/INI.git",
+        "state": {
+          "branch": null,
+          "revision": "60b7887c6f4051e5cb76b5faa0a7d6db510ddcb0",
+          "version": "1.2.0"
+        }
+      },
+      {
         "package": "Nimble",
         "repositoryURL": "https://github.com/Quick/Nimble.git",
         "state": {
           "branch": null,
           "revision": "e9d769113660769a4d9dd3afb855562c0b7ae7b0",
           "version": "7.3.4"
+        }
+      },
+      {
+        "package": "PerfectINI",
+        "repositoryURL": "https://github.com/RockfordWei/Perfect-INI",
+        "state": {
+          "branch": null,
+          "revision": "cc5fea4547121298fa8e69cf4ddb30fd2023dea1",
+          "version": "0.1.2"
         }
       },
       {
