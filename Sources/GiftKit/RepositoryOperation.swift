@@ -8,6 +8,20 @@
 import Foundation
 
 public struct RepositoryOperation {
+    public static func findRepository(targetURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)) throws -> Repository {
+        if targetURL.appendingPathComponent(".git").isDirectory {
+            return try Repository(workTreeURL: targetURL)
+        }
+
+        let parent = targetURL.deletingLastPathComponent()
+        if parent.standardizedFileURL == targetURL.standardizedFileURL {
+            // Bottom case (targetURL is root path)
+            throw RepositoryError.noGitDirectory
+        }
+
+        return try findRepository(targetURL: parent)
+    }
+
     @discardableResult
     public static func createRepository(workTreeURL: URL) throws -> Repository {
         let repository = try Repository(workTreeURL: workTreeURL, checkRepository: false)
