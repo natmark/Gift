@@ -2,6 +2,7 @@ import Foundation
 
 public enum RepositoryError: Error {
     case notGitRepository(String)
+    case noGitDirectory
     case configFileMissing
     case unsupportedRepositoryFormatVersion(String)
     case isNotEmpty
