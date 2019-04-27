@@ -21,7 +21,7 @@ struct InitCommand: CommandProtocol {
     func run(_ options: InitCommand.Options) -> Result<(), InitCommand.ClientError> {
         let worktreeURL = URL(fileURLWithPath: options.path)
         do {
-            try RepositoryOperation.createRepository(workTreeURL: worktreeURL)
+            try Repository.create(with: worktreeURL)
         } catch let error {
             print(error)
         }

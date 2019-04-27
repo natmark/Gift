@@ -8,8 +8,22 @@
 import Foundation
 import INI
 
-class GitConfig {
-    var sections: [Section]
+struct GitConfig {
+    var sections: [ConfigSection]
+
+    subscript(key: String) -> ConfigSection? {
+        return sections.filter { $0.name == key }.first
+    }
+
+    init(from configURL: URL? = nil) {
+        // Convert INI.Config to Config
+        guard let configURL = configURL, let iniConfig = try? parseINI(filename: configURL.path) else {
+            self.sections = []
+            return
+        }
+
+        self.sections = iniConfig.sections.map { ConfigSection(name: $0.name, settings: $0.settings) }
+    }
 
     func write(to configURL: URL) throws {
         var fileObject = ""
@@ -22,49 +36,27 @@ class GitConfig {
         try fileObject.write(to: configURL, atomically: true, encoding: .utf8)
     }
 
-    func set(sectionName: String, key: String, value: String) {
+    mutating func set(sectionName: String, key: String, value: String) {
         if sections.filter({ $0.name == sectionName }).count == 0 {
-            sections.append(Section(name: sectionName, settings: [key: value]))
+            sections.append(ConfigSection(name: sectionName, settings: [key: value]))
             return
         }
 
-        for section in sections {
-            if section.name == sectionName {
-                section.settings[key] = value
+        sections = sections.map({ section -> ConfigSection in
+            if(section.name != sectionName) {
+                return section
+            } else {
+                var settings = section.settings
+                settings[key] = value
+                return ConfigSection(name: section.name, settings: settings)
             }
-        }
-
-        //sections.append(section)
-    }
-
-    subscript(key: String) -> Section? {
-        return sections.filter { $0.name == key }.first
-    }
-
-    init(from configURL: URL? = nil) {
-        // Convert INI.Conft to Config
-        guard let configURL = configURL, let iniConfig = try? parseINI(filename: configURL.path) else {
-            self.sections = []
-            return
-        }
-
-        var sections = [Section]()
-        for section in iniConfig.sections {
-            sections.append(Section(name: section.name, settings: section.settings))
-        }
-
-        self.sections = sections
+        })
     }
 }
 
-class Section {
+struct ConfigSection {
     let name: String
     var settings: [String: String]
-
-    init(name: String, settings: [String: String]) {
-        self.name = name
-        self.settings = settings
-    }
 
     subscript(key: String) -> String? {
         return settings[key]
