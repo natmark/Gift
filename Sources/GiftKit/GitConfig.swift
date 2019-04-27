@@ -16,7 +16,7 @@ struct GitConfig {
     }
 
     init(from configURL: URL? = nil) {
-        // Convert INI.Conft to Config
+        // Convert INI.Config to Config
         guard let configURL = configURL, let iniConfig = try? parseINI(filename: configURL.path) else {
             self.sections = []
             return
