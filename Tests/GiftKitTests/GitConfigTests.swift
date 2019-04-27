@@ -16,7 +16,7 @@ final class GitConfigTests: XCTestCase {
     func testWriteConfig() throws {
         let resourceURL = Bundle(for: type(of: self)).resourceURL!
         var writeURL = resourceURL.appendingPathComponent("TestConfig", isDirectory: false)
-        let config = GitConfig()
+        var config = GitConfig()
 
         config.set(sectionName: "core", key: "repositoryformatversion", value: "0")
         config.set(sectionName: "core", key: "filemode", value: "false")

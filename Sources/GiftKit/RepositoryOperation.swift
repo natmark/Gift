@@ -60,7 +60,7 @@ public struct RepositoryOperation {
 
         // .git/config
         if let configURL = try convertToRepositoryFilePath(base: repository, pathComponents: ["config"]) {
-            let gitConfig = GitConfig()
+            var gitConfig = GitConfig()
             gitConfig.set(sectionName: "core", key: "repositoryformatversion", value: "0")
             gitConfig.set(sectionName: "core", key: "filemode", value: "false")
             gitConfig.set(sectionName: "core", key: "bare", value: "false")
@@ -71,7 +71,7 @@ public struct RepositoryOperation {
     }
 
     @discardableResult
-    static func convertToRepositoryFilePath(base repository: Repository, pathComponents: [String], withMakeDirectory: Bool = false) throws -> URL? {
+    private static func convertToRepositoryFilePath(base repository: Repository, pathComponents: [String], withMakeDirectory: Bool = false) throws -> URL? {
 
         if pathComponents.count == 0 {
             return repository.gitDirectoryURL
@@ -84,7 +84,7 @@ public struct RepositoryOperation {
     }
 
     @discardableResult
-    static func convertToRepositoryDirectoryPath(base repository: Repository, pathComponents: [String], withMakeDirectory: Bool = false) throws -> URL? {
+    private static func convertToRepositoryDirectoryPath(base repository: Repository, pathComponents: [String], withMakeDirectory: Bool = false) throws -> URL? {
         let path = repository.gitDirectoryURL.appendingPathComponents(pathComponents: pathComponents)
 
         if path.isExist {
