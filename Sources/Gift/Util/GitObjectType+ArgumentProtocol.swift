@@ -7,6 +7,7 @@
 
 import Foundation
 import Commandant
+import GiftKit
 
 extension GitObjectType: ArgumentProtocol {
     public static let name = "type"
