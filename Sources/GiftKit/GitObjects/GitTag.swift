@@ -12,16 +12,16 @@ public struct GitTag: GitObject {
         return .tag
     }
 
-    public var repository: Repository
+    public var repository: Repository?
 
-    public init(repository: Repository, data: Data?) {
+    public init(repository: Repository?, data: Data?) throws {
         self.repository = repository
     }
 
-    public func serialize() -> Data {
+    public func serialize() throws -> Data {
         fatalError()
     }
 
-    public func deserialize(data: Data) {
+    public mutating func deserialize(data: Data) throws {
     }
 }

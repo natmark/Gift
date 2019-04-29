@@ -1,21 +1,5 @@
 import Foundation
 
-public enum RepositoryError: Error {
-    case notGitRepository(String)
-    case noGitDirectory
-    case configFileMissing
-    case unsupportedRepositoryFormatVersion(String)
-    case isNotEmpty
-    case isNotDirectory
-    case failedResolvingSubpathName
-    case failedDecompressedObjectData
-    case failedCompressedObjectData
-    case unknownFormatType(String)
-    case mulformedObject(String)
-    case unsupportedOSXVersion(String)
-    case unknown(String)
-}
-
 public struct Repository {
     var workTreeURL: URL
     var gitDirectoryURL: URL
@@ -28,51 +12,75 @@ public struct Repository {
         self.gitDirectoryURL = workTreeURL.appendingPathComponent(".git")
 
         if !disableAllCheck && !gitDirectoryURL.isDirectory {
-            throw RepositoryError.notGitRepository(workTreeURL.path)
+            throw GiftKitError.notGitRepository(workTreeURL.path)
         }
 
         let configURL = gitDirectoryURL.appendingPathComponent("config")
         if configURL.isExist {
             self.config = GitConfig(from: configURL)
         } else if !disableAllCheck {
-            throw RepositoryError.configFileMissing
+            throw GiftKitError.configFileMissing
         }
 
         if disableAllCheck { return }
 
         if let formatVersion = self.config?["core"]?["repositoryformatversion"], Int(formatVersion) != 0 {
-            throw RepositoryError.unsupportedRepositoryFormatVersion(formatVersion)
+            throw GiftKitError.unsupportedRepositoryFormatVersion(formatVersion)
         }
+    }
+
+    public func hashObject(fileURL: URL, type: GitObjectType, withActuallyWrite actuallyWrite: Bool) throws -> String {
+
+        var repository: Repository? = nil
+        if actuallyWrite {
+            repository = self
+        }
+
+        let fileData = try Data(contentsOf: fileURL, options: [])
+
+        let object: GitObject
+        switch type {
+        case .commit:
+            object = try GitCommit(repository: repository, data: fileData)
+        case .tree:
+            object = try GitTree(repository: repository, data: fileData)
+        case .tag:
+            object = try GitTag(repository: repository, data: fileData)
+        case .blob:
+            object = try GitBlob(repository: repository, data: fileData)
+        }
+
+        return try self.writeObject(object, withActuallyWrite: actuallyWrite)
     }
 
     public func writeObject(_ object: GitObject, withActuallyWrite actuallyWrite: Bool = true) throws -> String {
         // Serialize object data
-        let data = object.serialize()
+        let data = try object.serialize()
         let byteArray = [UInt8](data)
         guard let objectFormatData = object.identifier.rawValue.data(using: .utf8), let dataSizeData = String(byteArray.count).data(using: .utf8) else {
-            throw RepositoryError.unknown("Failed to convert string to data")
+            throw GiftKitError.unknown("Failed to convert string to data")
         }
 
         let objectFormat = [UInt8](objectFormatData)
         let dataSize = [UInt8](dataSizeData)
         // Add header
-        let result = Data(bytes: objectFormat + [20] + dataSize + [0] + byteArray)
+        let result = Data(bytes: objectFormat + [0x20] + dataSize + [0x00] + byteArray)
         let sha = result.sha1()
 
 
         if actuallyWrite {
             guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))], withMakeDirectory: true) else {
-                throw RepositoryError.failedResolvingSubpathName
+                throw GiftKitError.failedResolvingSubpathName
             }
 
             let compressedData: Data?
             if #available(OSX 10.11, *) {
                 compressedData = try result.compress()
             } else {
-                throw RepositoryError.unsupportedOSXVersion("Available OS X 10.11 or newer")
+                throw GiftKitError.unsupportedOSXVersion("Available OS X 10.11 or newer")
             }
             guard let data = compressedData, let fileObject = String(data: data, encoding: .utf8) else {
-                throw RepositoryError.failedCompressedObjectData
+                throw GiftKitError.failedCompressedObjectData
             }
 
             try fileObject.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -85,7 +93,7 @@ public struct Repository {
         // .git/objects/e5/e11e0360d9534b0d3f65085df7c62d8fb8a82b
         // take prefix(2) to make directory (e5)
         guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))]) else {
-            throw RepositoryError.failedResolvingSubpathName
+            throw GiftKitError.failedResolvingSubpathName
         }
 
         let binaryData = try Data(contentsOf: fileURL, options: [])
@@ -93,10 +101,10 @@ public struct Repository {
         if #available(OSX 10.11, *) {
             decompressedData = try binaryData.decompress(algorithm: .zlib)
         } else {
-            throw RepositoryError.unsupportedOSXVersion("Available OS X 10.11 or newer")
+            throw GiftKitError.unsupportedOSXVersion("Available OS X 10.11 or newer")
         }
         guard let data = decompressedData else {
-            throw RepositoryError.failedDecompressedObjectData
+            throw GiftKitError.failedDecompressedObjectData
         }
 
         // commit 176.tree
@@ -104,22 +112,22 @@ public struct Repository {
         let dataBytes = [UInt8](data)
 
         // 0x00 NUL (Null string)
-        // 0x20 Control character
-        guard let firstControlCharacterIndex = dataBytes.firstIndex(of: 20),
-            let firstNullStringIndex = dataBytes.firstIndex(of: 0),
-            let format = String(bytes: Array(dataBytes.prefix(firstControlCharacterIndex)), encoding: .utf8),
-            let sizeString = String(bytes: dataBytes[firstControlCharacterIndex..<firstNullStringIndex], encoding: .utf8),
+        // 0x20 Control character (space)
+        guard let firstSpaceCharacterIndex = dataBytes.firstIndex(of: 0x20),
+            let firstNullStringIndex = dataBytes.firstIndex(of: 0x00, skip: firstSpaceCharacterIndex),
+            let format = String(bytes: Array(dataBytes.prefix(firstSpaceCharacterIndex)), encoding: .utf8),
+            let sizeString = String(bytes: dataBytes[firstSpaceCharacterIndex..<firstNullStringIndex], encoding: .utf8),
             let size = Int(sizeString)
             else {
-            throw RepositoryError.failedDecompressedObjectData
+            throw GiftKitError.failedDecompressedObjectData
         }
 
         if size != dataBytes.count - firstNullStringIndex - 1 {
-            throw RepositoryError.mulformedObject("Malformed object \(sha): bad length")
+            throw GiftKitError.mulformedObject("Malformed object \(sha): bad length")
         }
 
         guard let type = GitObjectType(rawValue: format) else {
-            throw RepositoryError.unknownFormatType("Unknown type \(format) for object \(sha)")
+            throw GiftKitError.unknownFormatType("Unknown type \(format) for object \(sha)")
         }
 
         let gitObjectMetaType: GitObject.Type
@@ -135,10 +143,10 @@ public struct Repository {
             gitObjectMetaType = GitBlob.self
         }
 
-        return gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.prefix(firstNullStringIndex+1)))
+        return try gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1)))
     }
 
-    public func findObject(name: String, format: String? = nil, follow: Bool = true) -> String {
+    public func findObject(name: String, type: GitObjectType, follow: Bool = true) -> String {
         return name
     }
 
@@ -150,7 +158,7 @@ public struct Repository {
         let parentURL = targetURL.deletingLastPathComponent()
         if parentURL.standardizedFileURL == targetURL.standardizedFileURL {
             // Bottom case (targetURL is root path)
-            throw RepositoryError.noGitDirectory
+            throw GiftKitError.noGitDirectory
         }
 
         return try find(with: parentURL)
@@ -162,10 +170,10 @@ public struct Repository {
 
         if repository.workTreeURL.isExist {
             if !repository.workTreeURL.isDirectory {
-                throw RepositoryError.isNotDirectory
+                throw GiftKitError.isNotDirectory
             }
             if let contents = try? repository.workTreeURL.contents(), !contents.isEmpty {
-                throw RepositoryError.isNotEmpty
+                throw GiftKitError.isNotEmpty
             }
         } else {
             try FileManager.default.createDirectory(at: workTreeURL, withIntermediateDirectories: true, attributes: nil)
@@ -225,7 +233,7 @@ public struct Repository {
             if path.isDirectory {
                 return path
             } else {
-                throw RepositoryError.isNotDirectory
+                throw GiftKitError.isNotDirectory
             }
         }
 

@@ -7,12 +7,16 @@
 
 import Foundation
 
+public enum GitObjectError: Error {
+    case failedDeserialize
+}
+
 public protocol GitObject {
     var identifier: GitObjectType { get }
-    var repository: Repository { get }
-    init(repository: Repository, data: Data?)
-    func serialize() -> Data
-    func deserialize(data: Data)
+    var repository: Repository? { get }
+    init(repository: Repository?, data: Data?) throws
+    func serialize() throws -> Data
+    mutating func deserialize(data: Data) throws
 }
 
 public enum GitObjectType: String {
