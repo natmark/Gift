@@ -8,7 +8,7 @@
 import Foundation
 
 public struct GitBlob: GitObject {
-    public static var identifier: GitObjectType {
+    public var identifier: GitObjectType {
         return .blob
     }
 
@@ -18,7 +18,8 @@ public struct GitBlob: GitObject {
         self.repository = repository
     }
 
-    public func serialize() {
+    public func serialize() -> Data {
+        fatalError()
     }
 
     public func deserialize(data: Data) {

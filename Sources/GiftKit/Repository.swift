@@ -9,9 +9,10 @@ public enum RepositoryError: Error {
     case isNotDirectory
     case failedResolvingSubpathName
     case failedDecompressedObjectData
+    case failedCompressedObjectData
     case unknownFormatType(String)
     case mulformedObject(String)
-    case unSupportedOSXVersion(String)
+    case unsupportedOSXVersion(String)
     case unknown(String)
 }
 
@@ -44,6 +45,42 @@ public struct Repository {
         }
     }
 
+    public func writeObject(_ object: GitObject, withActuallyWrite actuallyWrite: Bool = true) throws -> String {
+        // Serialize object data
+        let data = object.serialize()
+        let byteArray = [UInt8](data)
+        guard let objectFormatData = object.identifier.rawValue.data(using: .utf8), let dataSizeData = String(byteArray.count).data(using: .utf8) else {
+            throw RepositoryError.unknown("Failed to convert string to data")
+        }
+
+        let objectFormat = [UInt8](objectFormatData)
+        let dataSize = [UInt8](dataSizeData)
+        // Add header
+        let result = Data(bytes: objectFormat + [20] + dataSize + [0] + byteArray)
+        let sha = result.sha1()
+
+
+        if actuallyWrite {
+            guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))], withMakeDirectory: true) else {
+                throw RepositoryError.failedResolvingSubpathName
+            }
+
+            let compressedData: Data?
+            if #available(OSX 10.11, *) {
+                compressedData = try result.compress()
+            } else {
+                throw RepositoryError.unsupportedOSXVersion("Available OS X 10.11 or newer")
+            }
+            guard let data = compressedData, let fileObject = String(data: data, encoding: .utf8) else {
+                throw RepositoryError.failedCompressedObjectData
+            }
+
+            try fileObject.write(to: fileURL, atomically: true, encoding: .utf8)
+        }
+
+        return sha
+    }
+
     public func readObject(sha: String) throws -> GitObject {
         // .git/objects/e5/e11e0360d9534b0d3f65085df7c62d8fb8a82b
         // take prefix(2) to make directory (e5)
@@ -56,7 +93,7 @@ public struct Repository {
         if #available(OSX 10.11, *) {
             decompressedData = try binaryData.decompress(algorithm: .zlib)
         } else {
-            throw RepositoryError.unSupportedOSXVersion("Available OS X 10.11 or newer")
+            throw RepositoryError.unsupportedOSXVersion("Available OS X 10.11 or newer")
         }
         guard let data = decompressedData else {
             throw RepositoryError.failedDecompressedObjectData

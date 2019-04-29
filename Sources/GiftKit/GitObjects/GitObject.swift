@@ -8,10 +8,10 @@
 import Foundation
 
 public protocol GitObject {
-    static var identifier: GitObjectType { get }
+    var identifier: GitObjectType { get }
     var repository: Repository { get }
     init(repository: Repository, data: Data?)
-    func serialize()
+    func serialize() -> Data
     func deserialize(data: Data)
 }
 

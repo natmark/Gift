@@ -8,7 +8,7 @@
 import Foundation
 
 public struct GitTag: GitObject {
-    public static var identifier: GitObjectType {
+    public var identifier: GitObjectType {
         return .tag
     }
 
@@ -18,7 +18,8 @@ public struct GitTag: GitObject {
         self.repository = repository
     }
 
-    public func serialize() {
+    public func serialize() -> Data {
+        fatalError()
     }
 
     public func deserialize(data: Data) {
