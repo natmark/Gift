@@ -146,7 +146,7 @@ public struct Repository {
         return try gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1)))
     }
 
-    public func findObject(name: String, type: GitObjectType, follow: Bool = true) -> String {
+    public func findObject(name: String, type: GitObjectType? = nil, follow: Bool = true) -> String {
         return name
     }
 

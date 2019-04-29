@@ -9,7 +9,7 @@ import Foundation
 
 public struct GitCommit: GitObject {
     // Key-Value List with Message
-    private var kvlm: [String: Any] = [:]
+    public var kvlm: [String: Any] = [:]
     public var identifier: GitObjectType {
         return .commit
     }
