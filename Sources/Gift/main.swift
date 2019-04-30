@@ -10,6 +10,7 @@ registry.register(LogCommand())
 registry.register(LsTreeCommand())
 registry.register(CheckoutCommand())
 registry.register(ShowRefCommand())
+registry.register(TagCommand())
 
 let helpCommand = HelpCommand(registry: registry)
 registry.register(helpCommand)

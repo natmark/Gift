@@ -93,6 +93,34 @@ public struct Repository {
 }
 
 extension Repository {
+    public func createTag(name: String, reference: String, withActuallyCreate createTagObject: Bool) throws {
+
+        let sha = findObject(name: reference)
+
+        if createTagObject {
+            var tag = try GitTag(repository: self, data: nil)
+            tag.kvlm = [:]
+            tag.kvlm["object"] = sha
+            tag.kvlm["type"] = "commit"
+            tag.kvlm["tag"] = name
+            // TODO: Fix tagger
+            tag.kvlm["tagger"] = "Author Name <author@git.com>"
+            tag.kvlm[""] = "This is the commit message that should have come from the user\n"
+            let tagSHA = try writeObject(tag)
+            try createReference(pathComponents: ["tags", name], sha: tagSHA)
+        } else {
+            try createReference(pathComponents: ["tags", name], sha: sha)
+        }
+    }
+
+    public func createReference(pathComponents: [String], sha: String) throws {
+        guard let filePath = try computeSubFilePathFromPathComponents(["refs"] + pathComponents) else {
+            throw GiftKitError.failedResolvingSubpathName
+        }
+        let fileObject = sha + "\n"
+        try fileObject.write(to: filePath, atomically: true, encoding: .utf8)
+    }
+
     public func getReferenceList(pathComponents: [String] = []) throws -> [String: Any] {
         let referencePath: URL
         if pathComponents.isEmpty {
