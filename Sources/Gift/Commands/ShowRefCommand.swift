@@ -26,7 +26,7 @@ struct ShowRefCommand: CommandProtocol {
             repository = try Repository.find()
             refs = try repository.getReferenceList()
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         GitReference.show(references: refs, repository: repository, prefix:"refs")

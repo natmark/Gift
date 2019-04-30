@@ -28,33 +28,33 @@ struct CheckoutCommand: CommandProtocol {
                 object = try repository.readObject(sha: (object as! GitCommit).kvlm["tree"] as! String)
             }
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         let path = URL(fileURLWithPath: options.path)
         if path.isExist {
             if !path.isDirectory {
-                return .failure(CommandantError.usageError(description: "Not a directory \(path.path)"))
+                fatalError("Not a directory \(path.path)")
             }
             if let contents = try? path.contents(), !contents.isEmpty {
-                return .failure(CommandantError.usageError(description: "Not empty \(path.path)"))
+                fatalError("Not empty \(path.path)")
             }
         } else {
             do {
                 try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true, attributes: nil)
             } catch let error {
-                return .failure(CommandantError.usageError(description: error.localizedDescription))
+                fatalError(error.localizedDescription)
             }
         }
 
         guard let tree = object as? GitTree else {
-            return .failure(CommandantError.usageError(description: "\(object.identifier.rawValue) cannot cast to GitTree."))
+            fatalError("\(object.identifier.rawValue) cannot cast to GitTree.")
         }
 
         do {
             try checkoutTree(tree, repository: repository, path: path)
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         return .success(())

@@ -21,21 +21,21 @@ struct HashObjectCommand: CommandProtocol {
     func run(_ options: HashObjectCommand.Options) -> Result<(), HashObjectCommand.ClientError> {
         let fileURL = URL(fileURLWithPath: options.path)
         guard let type = options.type else {
-            return .failure(CommandantError.usageError(description: "Type argument is invalid"))
+            fatalError("Type argument is invalid")
         }
 
         let repository: Repository
         do {
             repository = try Repository.find()
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         do {
             let sha = try repository.hashObject(fileURL: fileURL, type: type, withActuallyWrite: options.write)
             print(sha)
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
         return .success(())
     }

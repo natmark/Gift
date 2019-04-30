@@ -25,7 +25,7 @@ struct RevParseCommand: CommandProtocol {
             repository = try Repository.find()
             print(try repository.findObject(name: options.name, type: options.type))
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
         return .success(())
     }

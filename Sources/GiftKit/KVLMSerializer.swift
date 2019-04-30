@@ -68,7 +68,7 @@ public struct KVLMSerializer {
         if firstSpaceCharacterIndex < 0 || firstNullStringIndex < firstSpaceCharacterIndex {
             assert(firstNullStringIndex == startIndex)
             guard let string = String(bytes: Data(bytes: Array(dataBytes.dropFirst(startIndex + 1))), encoding: .utf8) else {
-                throw GiftKitError.unknown("Failed to convert string to data")
+                throw GiftKitError.failedKVLMTypeCast
             }
 
             dict[""] = string
@@ -76,7 +76,7 @@ public struct KVLMSerializer {
         }
 
         guard let key = String(bytes: dataBytes[startIndex..<firstSpaceCharacterIndex], encoding: .utf8) else {
-            throw GiftKitError.unknown("Failed to convert string to data")
+            throw GiftKitError.failedKVLMTypeCast
         }
 
         var endIndex = startIndex
@@ -84,7 +84,7 @@ public struct KVLMSerializer {
             // 0x0a LF (line break)
             guard let index = dataBytes.firstIndex(of: 0x0a, skip: endIndex + 1)
                 else {
-                    throw GiftKitError.failedDeserializeGitCommitObject
+                    throw GiftKitError.failedKVLMTypeCast
             }
             endIndex = index
             if dataBytes[endIndex + 1] != 0x20 {
@@ -93,7 +93,7 @@ public struct KVLMSerializer {
         }
 
         guard let value = String(bytes: dataBytes[firstSpaceCharacterIndex+1..<endIndex], encoding: .utf8)?.replacingOccurrences(of: "\n ", with: "\n") else {
-            throw GiftKitError.failedDeserializeGitCommitObject
+            throw GiftKitError.failedKVLMTypeCast
         }
 
         if dict.keys.contains(key) {
