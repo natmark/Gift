@@ -17,8 +17,11 @@ public enum GiftKitError: Error {
     case failedResolvingSubpathName
     case failedDecompressedObjectData
     case failedCompressedObjectData
+    case failedDeserializeGitTreeObject
+    case failedSerializeGitTreeObject
     case failedDeserializeGitCommitObject
     case failedSerializeGitCommitObject
+    case failedGitObjectTypeCast
     case unknownFormatType(String)
     case mulformedObject(String)
     case unsupportedOSXVersion(String)

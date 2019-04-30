@@ -37,9 +37,10 @@ struct LogCommand: CommandProtocol {
         }
         loadedSHAList.append(sha)
 
-        guard let object = try? repository.readObject(sha: sha), let commit = object as? GitCommit else {
+        guard let commit = try? repository.readObject(type: GitCommit.self, sha: sha) else {
             return
         }
+
         if !commit.kvlm.keys.contains("parent") {
             // Base case: the initial commit
             return

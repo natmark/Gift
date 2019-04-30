@@ -8,7 +8,7 @@
 import Foundation
 
 extension URL {
-    func contents() throws -> [URL] {
+    public func contents() throws -> [URL] {
         let files: [URL]
         do {
             files = try FileManager.default.contentsOfDirectory(at: self, includingPropertiesForKeys: nil, options: [])

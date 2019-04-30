@@ -13,15 +13,15 @@ extension URL {
         case notExist
     }
 
-    var isDirectory: Bool {
+    public var isDirectory: Bool {
         return fileStatus == .directory
     }
 
-    var isFile: Bool {
+    public var isFile: Bool {
         return fileStatus == .file
     }
 
-    var isExist: Bool {
+    public var isExist: Bool {
         return fileStatus != .notExist
     }
 
