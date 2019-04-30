@@ -25,7 +25,7 @@ struct LsTreeCommand: CommandProtocol {
             repository = try Repository.find()
             tree = try repository.readObject(type: GitTree.self, sha: options.object)
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         for leaf in tree.leafs {
@@ -33,7 +33,7 @@ struct LsTreeCommand: CommandProtocol {
             do {
                 object = try repository.readObject(sha: leaf.sha)
             } catch let error {
-                return .failure(CommandantError.usageError(description: error.localizedDescription))
+                fatalError(error.localizedDescription)
             }
             print("\(leaf.mode) \(object.identifier.rawValue) \(leaf.sha)\t\(leaf.path)")
         }

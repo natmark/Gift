@@ -23,21 +23,21 @@ struct TagCommand: CommandProtocol {
         do {
             repository = try Repository.find()
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         if let name = options.name {
             do {
                 try repository.createTag(name: name, reference: options.object, withActuallyCreate: options.createTagObject)
             } catch let error {
-                return .failure(CommandantError.usageError(description: error.localizedDescription))
+                fatalError(error.localizedDescription)
             }
         } else {
             do {
                 let refs = try repository.getReferenceList()
                 GitReference.show(references: refs, repository: repository, withHash: false)
             } catch let error {
-                return .failure(CommandantError.usageError(description: error.localizedDescription))
+                fatalError(error.localizedDescription)
             }
         }
         return .success(())

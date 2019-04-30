@@ -23,7 +23,7 @@ struct InitCommand: CommandProtocol {
         do {
             try Repository.create(with: worktreeURL)
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
 
         return .success(())

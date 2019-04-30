@@ -12,7 +12,7 @@ public struct Repository {
         self.gitDirectoryURL = workTreeURL.appendingPathComponent(".git")
 
         if !disableAllCheck && !gitDirectoryURL.isDirectory {
-            throw GiftKitError.notGitRepository(workTreeURL.path)
+            throw GiftKitError.notGitRepository(path: workTreeURL)
         }
 
         let configURL = gitDirectoryURL.appendingPathComponent("config")
@@ -25,7 +25,7 @@ public struct Repository {
         if disableAllCheck { return }
 
         if let formatVersion = self.config?["core"]?["repositoryformatversion"], Int(formatVersion) != 0 {
-            throw GiftKitError.unsupportedRepositoryFormatVersion(formatVersion)
+            throw GiftKitError.unsupportedRepositoryFormatVersion(version: formatVersion)
         }
     }
 
@@ -49,10 +49,10 @@ public struct Repository {
 
         if repository.workTreeURL.isExist {
             if !repository.workTreeURL.isDirectory {
-                throw GiftKitError.isNotDirectory
+                throw GiftKitError.isNotDirectory(repository.workTreeURL)
             }
             if let contents = try? repository.workTreeURL.contents(), !contents.isEmpty {
-                throw GiftKitError.isNotEmpty
+                throw GiftKitError.isNotEmpty(repository.workTreeURL)
             }
         } else {
             try FileManager.default.createDirectory(at: workTreeURL, withIntermediateDirectories: true, attributes: nil)
@@ -171,7 +171,7 @@ extension Repository {
 
     public func createReference(pathComponents: [String], sha: String) throws {
         guard let filePath = try computeSubFilePathFromPathComponents(["refs"] + pathComponents) else {
-            throw GiftKitError.failedResolvingSubpathName
+            throw GiftKitError.failedResolvingSubpathName(pathComponents: ["refs"] + pathComponents)
         }
         let fileObject = sha + "\n"
         try fileObject.write(to: filePath, atomically: true, encoding: .utf8)
@@ -181,7 +181,7 @@ extension Repository {
         let referencePath: URL
         if pathComponents.isEmpty {
             guard let refPath = try computeSubDirectoryPathFromPathComponents(["refs"]) else {
-                throw GiftKitError.failedResolvingSubpathName
+                throw GiftKitError.failedResolvingSubpathName(pathComponents: ["refs"])
             }
             referencePath = refPath
         } else {
@@ -190,7 +190,7 @@ extension Repository {
 
         var result = [String: Any]()
 
-        for fileURL in try referencePath.contents().sorted(by: { $0.absoluteString < $1.absoluteString }) {
+        for fileURL in try referencePath.contents().sorted(by: { $0.path < $1.path }) {
             let lastPathComponent = fileURL.lastPathComponent
             if fileURL.isDirectory {
                 result[lastPathComponent] = try getReferenceList(pathComponents: [lastPathComponent])
@@ -204,7 +204,7 @@ extension Repository {
 
     public func resolveReference(pathComponents: [String]) throws -> String {
         guard let fileURL = try self.computeSubFilePathFromPathComponents(pathComponents) else {
-            throw GiftKitError.failedResolvingSubpathName
+            throw GiftKitError.failedResolvingSubpathName(pathComponents: pathComponents)
         }
         let refText = try String(contentsOf: fileURL).replacingOccurrences(of: "\n", with: "")
 
@@ -256,14 +256,14 @@ extension Repository {
 
         if actuallyWrite {
             guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))], withMakeDirectory: true) else {
-                throw GiftKitError.failedResolvingSubpathName
+                throw GiftKitError.failedResolvingSubpathName(pathComponents: ["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))])
             }
 
             let compressedData: Data?
             if #available(OSX 10.11, *) {
                 compressedData = try result.compress()
             } else {
-                throw GiftKitError.unsupportedOSXVersion("Available OS X 10.11 or newer")
+                throw GiftKitError.unsupportedOSXVersion
             }
             guard let data = compressedData, let fileObject = String(data: data, encoding: .utf8) else {
                 throw GiftKitError.failedCompressedObjectData
@@ -285,7 +285,7 @@ extension Repository {
         // .git/objects/e5/e11e0360d9534b0d3f65085df7c62d8fb8a82b
         // take prefix(2) to make directory (e5)
         guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))]) else {
-            throw GiftKitError.failedResolvingSubpathName
+            throw GiftKitError.failedResolvingSubpathName(pathComponents: ["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))])
         }
 
         let binaryData = try Data(contentsOf: fileURL, options: [])
@@ -293,7 +293,7 @@ extension Repository {
         if #available(OSX 10.11, *) {
             decompressedData = try binaryData.decompress(algorithm: .zlib)
         } else {
-            throw GiftKitError.unsupportedOSXVersion("Available OS X 10.11 or newer")
+            throw GiftKitError.unsupportedOSXVersion
         }
         guard let data = decompressedData else {
             throw GiftKitError.failedDecompressedObjectData
@@ -315,11 +315,11 @@ extension Repository {
         }
 
         if size != dataBytes.count - firstNullStringIndex - 1 {
-            throw GiftKitError.mulformedObject("Malformed object \(sha): bad length")
+            throw GiftKitError.mulformedObject(sha)
         }
 
         guard let type = GitObjectType(rawValue: format) else {
-            throw GiftKitError.unknownFormatType("Unknown type \(format) for object \(sha)")
+            throw GiftKitError.unknownFormatType(format: format, sha: sha)
         }
 
         let gitObjectMetaType: GitObject.Type
@@ -344,7 +344,7 @@ extension Repository {
         let shaList = try resolveObject(name: name)
 
         if shaList.isEmpty {
-            throw GiftKitError.noObjectReference(name)
+            throw GiftKitError.noObjectReference(name: name)
         }
         if shaList.count > 1 {
             throw GiftKitError.ambiguousObjectReference("Ambiguous reference \(name): Candidates are:\n - \(shaList.joined(separator: "\n - ")).")
@@ -404,7 +404,7 @@ extension Repository {
             if path.isDirectory {
                 return path
             } else {
-                throw GiftKitError.isNotDirectory
+                throw GiftKitError.isNotDirectory(path)
             }
         }
 

@@ -25,7 +25,7 @@ struct LogCommand: CommandProtocol {
             repository = try Repository.find()
             sha = try repository.findObject(name: options.commit)
         } catch let error {
-            return .failure(CommandantError.usageError(description: error.localizedDescription))
+            fatalError(error.localizedDescription)
         }
         
         printLog(repository: repository, sha: sha)
