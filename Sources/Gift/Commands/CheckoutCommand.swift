@@ -69,7 +69,7 @@ struct CheckoutCommand: CommandProtocol {
                 try FileManager.default.createDirectory(at: destinationPath, withIntermediateDirectories: true, attributes: nil)
                 try checkoutTree(tree, repository: repository, path: destinationPath)
             } else if let blob = object as? GitBlob {
-                try blob.blobData.write(to: destinationPath, options: .atomic)
+                try blob.blobData.write(to: destinationPath, options: .atomicWrite)
             }
         }
     }

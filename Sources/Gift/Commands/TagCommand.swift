@@ -26,16 +26,19 @@ struct TagCommand: CommandProtocol {
             fatalError(error.localizedDescription)
         }
 
-        if let name = options.name {
+        if !options.name.isEmpty {
             do {
-                try repository.createTag(name: name, reference: options.object, withActuallyCreate: options.createTagObject)
+                try repository.createTag(name: options.name, reference: options.object, withActuallyCreate: options.createTagObject)
             } catch let error {
                 fatalError(error.localizedDescription)
             }
         } else {
             do {
                 let refs = try repository.getReferenceList()
-                GitReference.show(references: refs, repository: repository, withHash: false)
+                guard let tags = refs["tags"] as? [String: Any] else {
+                    fatalError("Cannot load refs[\"tags\"]")
+                }
+                GitReference.show(references: tags, repository: repository)
             } catch let error {
                 fatalError(error.localizedDescription)
             }
@@ -47,13 +50,13 @@ struct TagCommand: CommandProtocol {
 struct TagOptions: OptionsProtocol {
     typealias ClientError = CommandantError<()>
     let createTagObject: Bool
-    let name: String?
+    let name: String
     let object: String
 
     public static func evaluate(_ m: CommandMode) -> Result<TagOptions, CommandantError<TagOptions.ClientError>> {
         return curry(self.init)
             <*> m <| Option(key: "a", defaultValue: false, usage: "Whether to create a tag object")
-            <*> m <| Argument(defaultValue: nil, usage: "The new tag's name", usageParameter: "tag name")
+            <*> m <| Argument(defaultValue: "", usage: "The new tag's name", usageParameter: "tag")
             <*> m <| Argument(defaultValue: "HEAD", usage: "The object the new tag will point to", usageParameter: "object")
     }
 }

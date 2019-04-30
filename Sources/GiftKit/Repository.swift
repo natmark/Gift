@@ -95,7 +95,7 @@ public struct Repository {
 extension Repository {
     public func resolveObject(name: String) throws -> [String] {
         func isHash(string: String) -> Bool {
-            let pattern = "^[0-9A-Fa-f]{1,16}$"
+            let pattern = "^[0-9A-Fa-f]{1,40}$"
             guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
             let matches = regex.matches(in: string, range: NSRange(location: 0, length: string.count))
             return matches.count > 0
@@ -191,11 +191,11 @@ extension Repository {
         var result = [String: Any]()
 
         for fileURL in try referencePath.contents().sorted(by: { $0.path < $1.path }) {
-            let lastPathComponent = fileURL.lastPathComponent
+            let pathComponents = try computeSubPathComponents(from: fileURL)
             if fileURL.isDirectory {
-                result[lastPathComponent] = try getReferenceList(pathComponents: [lastPathComponent])
+                result[fileURL.lastPathComponent] = try getReferenceList(pathComponents: pathComponents)
             } else {
-                result[lastPathComponent] = try resolveReference(pathComponents: [lastPathComponent])
+                result[fileURL.lastPathComponent] = try resolveReference(pathComponents: pathComponents)
             }
         }
 
@@ -253,7 +253,6 @@ extension Repository {
         let result = Data(bytes: objectFormat + [0x20] + dataSize + [0x00] + byteArray)
         let sha = result.sha1()
 
-
         if actuallyWrite {
             guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))], withMakeDirectory: true) else {
                 throw GiftKitError.failedResolvingSubpathName(pathComponents: ["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))])
@@ -265,11 +264,10 @@ extension Repository {
             } else {
                 throw GiftKitError.unsupportedOSXVersion
             }
-            guard let data = compressedData, let fileObject = String(data: data, encoding: .utf8) else {
+            guard let fileObject = compressedData else {
                 throw GiftKitError.failedCompressedObjectData
             }
-
-            try fileObject.write(to: fileURL, atomically: true, encoding: .utf8)
+            try fileObject.write(to: fileURL, options: .atomicWrite)
         }
 
         return sha
@@ -381,6 +379,20 @@ extension Repository {
                 return ""
             }
         }
+    }
+
+    private func computeSubPathComponents(from subpath: URL) throws -> [String] {
+        let basePathComponents = gitDirectoryURL.pathComponents
+        var subPathComponents = subpath.pathComponents
+
+        for component in basePathComponents {
+            if let first = subPathComponents.first, component == first {
+                subPathComponents = Array(subPathComponents.dropFirst())
+            } else {
+                throw GiftKitError.failedResolvingSubpathName(pathComponents: subPathComponents)
+            }
+        }
+        return subPathComponents
     }
 
     @discardableResult
