@@ -10,6 +10,8 @@ import Foundation
 public enum GiftKitError: Error {
     case notGitRepository(String)
     case noGitDirectory
+    case noObjectReference(String)
+    case ambiguousObjectReference(String)
     case configFileMissing
     case unsupportedRepositoryFormatVersion(String)
     case isNotEmpty
@@ -21,6 +23,7 @@ public enum GiftKitError: Error {
     case failedSerializeGitTreeObject
     case failedDeserializeGitCommitObject
     case failedSerializeGitCommitObject
+    case failedKVLMTypeCast
     case failedGitObjectTypeCast
     case unknownFormatType(String)
     case mulformedObject(String)

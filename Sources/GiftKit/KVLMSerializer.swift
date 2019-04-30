@@ -29,14 +29,14 @@ public struct KVLMSerializer {
             for value in values {
                 // 0x20 Space
                 guard let valueData = value.replacingOccurrences(of: "\n", with: "\n ").data(using: .utf8), let keyData = key.data(using: .utf8) else {
-                    throw GiftKitError.failedSerializeGitCommitObject
+                    throw GiftKitError.failedKVLMTypeCast
                 }
                 dataBytes += [UInt8](keyData) + [0x20] + [UInt8](valueData) + [0x0a]
             }
         }
 
         guard let message = kvlm[""] as? String, let messageData = message.data(using: .utf8) else {
-            throw GiftKitError.failedSerializeGitCommitObject
+            throw GiftKitError.failedKVLMTypeCast
         }
         dataBytes += [0x0a] + [UInt8](messageData)
 
