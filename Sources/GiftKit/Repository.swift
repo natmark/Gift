@@ -89,6 +89,12 @@ public struct Repository {
         return sha
     }
 
+    public func readObject<T: GitObject>(type: T.Type, sha: String) throws -> T {
+        guard let castedObject = try readObject(sha: sha) as? T else {
+            throw GiftKitError.failedGitObjectTypeCast
+        }
+        return castedObject
+    }
     public func readObject(sha: String) throws -> GitObject {
         // .git/objects/e5/e11e0360d9534b0d3f65085df7c62d8fb8a82b
         // take prefix(2) to make directory (e5)
@@ -143,7 +149,9 @@ public struct Repository {
             gitObjectMetaType = GitBlob.self
         }
 
-        return try gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1)))
+        let gitObject = try gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1)))
+
+        return gitObject
     }
 
     public func findObject(name: String, type: GitObjectType? = nil, follow: Bool = true) -> String {
