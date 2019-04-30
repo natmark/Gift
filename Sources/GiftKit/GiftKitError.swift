@@ -11,11 +11,11 @@ public enum GiftKitError: Error {
     case notGitRepository(path: URL)
     case noGitDirectory
     case noObjectReference(name: String)
-    case ambiguousObjectReference(String)
+    case ambiguousObjectReference(message: String)
     case configFileMissing
     case unsupportedRepositoryFormatVersion(version: String)
-    case isNotEmpty(URL)
-    case isNotDirectory(URL)
+    case isNotEmpty(url: URL)
+    case isNotDirectory(url: URL)
     case failedResolvingSubpathName(pathComponents: [String])
     case failedDecompressedObjectData
     case failedCompressedObjectData
@@ -26,9 +26,9 @@ public enum GiftKitError: Error {
     case failedKVLMTypeCast
     case failedGitObjectTypeCast
     case unknownFormatType(format: String, sha: String)
-    case mulformedObject(String)
+    case mulformedObject(sha: String)
     case unsupportedOSXVersion
-    case unknown(String)
+    case unknown(message: String)
 }
 
 extension GiftKitError: LocalizedError {

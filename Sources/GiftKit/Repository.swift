@@ -49,10 +49,10 @@ public struct Repository {
 
         if repository.workTreeURL.isExist {
             if !repository.workTreeURL.isDirectory {
-                throw GiftKitError.isNotDirectory(repository.workTreeURL)
+                throw GiftKitError.isNotDirectory(url: repository.workTreeURL)
             }
             if let contents = try? repository.workTreeURL.contents(), !contents.isEmpty {
-                throw GiftKitError.isNotEmpty(repository.workTreeURL)
+                throw GiftKitError.isNotEmpty(url: repository.workTreeURL)
             }
         } else {
             try FileManager.default.createDirectory(at: workTreeURL, withIntermediateDirectories: true, attributes: nil)
@@ -244,7 +244,7 @@ extension Repository {
         let data = try object.serialize()
         let byteArray = [UInt8](data)
         guard let objectFormatData = object.identifier.rawValue.data(using: .utf8), let dataSizeData = String(byteArray.count).data(using: .utf8) else {
-            throw GiftKitError.unknown("Failed to convert string to data")
+            throw GiftKitError.unknown(message: "Failed to convert string to data")
         }
 
         let objectFormat = [UInt8](objectFormatData)
@@ -315,7 +315,7 @@ extension Repository {
         }
 
         if size != dataBytes.count - firstNullStringIndex - 1 {
-            throw GiftKitError.mulformedObject(sha)
+            throw GiftKitError.mulformedObject(sha: sha)
         }
 
         guard let type = GitObjectType(rawValue: format) else {
@@ -347,7 +347,7 @@ extension Repository {
             throw GiftKitError.noObjectReference(name: name)
         }
         if shaList.count > 1 {
-            throw GiftKitError.ambiguousObjectReference("Ambiguous reference \(name): Candidates are:\n - \(shaList.joined(separator: "\n - ")).")
+            throw GiftKitError.ambiguousObjectReference(message: "Ambiguous reference \(name): Candidates are:\n - \(shaList.joined(separator: "\n - ")).")
         }
 
         var sha = shaList.first!
@@ -404,7 +404,7 @@ extension Repository {
             if path.isDirectory {
                 return path
             } else {
-                throw GiftKitError.isNotDirectory(path)
+                throw GiftKitError.isNotDirectory(url: path)
             }
         }
 
