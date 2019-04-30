@@ -38,15 +38,6 @@
         }
       },
       {
-        "package": "PerfectINI",
-        "repositoryURL": "https://github.com/RockfordWei/Perfect-INI",
-        "state": {
-          "branch": null,
-          "revision": "cc5fea4547121298fa8e69cf4ddb30fd2023dea1",
-          "version": "0.1.2"
-        }
-      },
-      {
         "package": "Quick",
         "repositoryURL": "https://github.com/Quick/Quick.git",
         "state": {
