@@ -8,6 +8,7 @@
 import Foundation
 
 public struct GitBlob: GitObject {
+    public var blobData: Data = Data()
     public var identifier: GitObjectType {
         return .blob
     }
@@ -19,9 +20,10 @@ public struct GitBlob: GitObject {
     }
 
     public func serialize() throws -> Data {
-        fatalError()
+        return self.blobData
     }
 
     public mutating func deserialize(data: Data) throws {
+        self.blobData = data
     }
 }
