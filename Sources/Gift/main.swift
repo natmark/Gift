@@ -11,6 +11,7 @@ registry.register(LsTreeCommand())
 registry.register(CheckoutCommand())
 registry.register(ShowRefCommand())
 registry.register(TagCommand())
+registry.register(RevParseCommand())
 
 let helpCommand = HelpCommand(registry: registry)
 registry.register(helpCommand)

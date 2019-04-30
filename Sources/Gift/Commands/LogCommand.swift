@@ -20,17 +20,19 @@ struct LogCommand: CommandProtocol {
 
     func run(_ options: LogCommand.Options) -> Result<(), LogCommand.ClientError> {
         let repository: Repository
+        let sha: String
         do {
             repository = try Repository.find()
+            sha = try repository.findObject(name: options.commit)
         } catch let error {
             return .failure(CommandantError.usageError(description: error.localizedDescription))
         }
         
-        printLog(repository: repository, sha: repository.findObject(name: options.commit), loadedSHAList: [])
+        printLog(repository: repository, sha: sha)
         return .success(())
     }
 
-    func printLog(repository: Repository, sha: String, loadedSHAList: [String]) {
+    func printLog(repository: Repository, sha: String, loadedSHAList: [String] = []) {
         var loadedSHAList = loadedSHAList
         if loadedSHAList.contains(sha) {
             return

@@ -93,10 +93,66 @@ public struct Repository {
 }
 
 extension Repository {
+    public func resolveObject(name: String) throws -> [String] {
+        func isHash(string: String) -> Bool {
+            let pattern = "^[0-9A-Fa-f]{1,16}$"
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+            let matches = regex.matches(in: string, range: NSRange(location: 0, length: string.count))
+            return matches.count > 0
+        }
+
+        /*
+        Resolve name to an object hash in repo.
+
+        This function is aware of:
+
+        - the HEAD literal
+        - short and long hashes
+        - tags
+        - branches
+        - remote branches
+        */
+
+        var candidates = [String]()
+        if name.trimmingCharacters(in: .whitespaces).isEmpty {
+            return []
+        }
+
+        if name == "HEAD" {
+            return [try resolveReference(pathComponents: ["HEAD"])]
+        }
+
+        if isHash(string: name) {
+            if name.count == 40 {
+                // This is a complete hash
+                return [name.lowercased()]
+            } else if name.count >= 4 {
+                /*
+                This is a small hash 4 seems to be the minimal length
+                for git to consider something a short hash.
+                This limit is documented in man git-rev-parse
+                */
+
+                let minHash = name.lowercased()
+                let prefix = String(minHash.prefix(2))
+                if let path = try computeSubDirectoryPathFromPathComponents(["objects", prefix], withMakeDirectory: false) {
+                    let suffix = name.dropFirst(2)
+
+                    let files = try path.contents().map { $0.lastPathComponent }.filter { $0.starts(with: suffix)}.map { prefix + $0 }
+
+                    candidates += files
+                }
+            }
+        }
+
+        return candidates
+    }
+    
+
     public func createTag(name: String, reference: String, withActuallyCreate createTagObject: Bool) throws {
 
-        let sha = findObject(name: reference)
-
+        let sha = try findObject(name: reference)
+        
         if createTagObject {
             var tag = try GitTag(repository: self, data: nil)
             tag.kvlm = [:]
@@ -284,8 +340,47 @@ extension Repository {
         return gitObject
     }
 
-    public func findObject(name: String, type: GitObjectType? = nil, follow: Bool = true) -> String {
-        return name
+    public func findObject(name: String, type: GitObjectType? = nil, follow: Bool = true) throws -> String {
+        let shaList = try resolveObject(name: name)
+
+        if shaList.isEmpty {
+            throw GiftKitError.noObjectReference(name)
+        }
+        if shaList.count > 1 {
+            throw GiftKitError.ambiguousObjectReference("Ambiguous reference \(name): Candidates are:\n - \(shaList.joined(separator: "\n - ")).")
+        }
+
+        var sha = shaList.first!
+
+        guard let type = type else {
+            return sha
+        }
+
+        while true {
+            let object = try readObject(sha: sha)
+
+            if object.identifier == type {
+                return sha
+            }
+
+            if !follow {
+                return ""
+            }
+
+            if let tag = object as? GitTag {
+                guard let shaObject = tag.kvlm["object"] as? String else {
+                    throw GiftKitError.failedKVLMTypeCast
+                }
+                sha = shaObject
+            } else if let commit = object as? GitCommit, type == .tree {
+                guard let shaObject = commit.kvlm["tree"] as? String else {
+                    throw GiftKitError.failedKVLMTypeCast
+                }
+                sha = shaObject
+            } else {
+                return ""
+            }
+        }
     }
 
     @discardableResult
