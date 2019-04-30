@@ -9,6 +9,7 @@ registry.register(HashObjectCommand())
 registry.register(LogCommand())
 registry.register(LsTreeCommand())
 registry.register(CheckoutCommand())
+registry.register(ShowRefCommand())
 
 let helpCommand = HelpCommand(registry: registry)
 registry.register(helpCommand)
