@@ -8,6 +8,7 @@
 import Foundation
 
 public struct GitTag: GitObject {
+    public var kvlm: [String: Any] = [:]
     public var identifier: GitObjectType {
         return .tag
     }
@@ -19,9 +20,10 @@ public struct GitTag: GitObject {
     }
 
     public func serialize() throws -> Data {
-        fatalError()
+        return try KVLMSerializer.serialize(kvlm: self.kvlm)
     }
 
     public mutating func deserialize(data: Data) throws {
+        self.kvlm = try KVLMSerializer.deserialize(data: data)
     }
 }

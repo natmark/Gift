@@ -29,30 +29,9 @@ struct ShowRefCommand: CommandProtocol {
             return .failure(CommandantError.usageError(description: error.localizedDescription))
         }
 
-        showReference(refs, repository: repository, prefix:"refs")
+        GitReference.show(references: refs, repository: repository, prefix:"refs")
 
         return .success(())
-    }
-
-    func showReference(_ refs: [String: Any], repository: Repository, withHash: Bool = true, prefix: String = "") {
-        for (key, value) in refs {
-            var spacer = ""
-            if withHash {
-                spacer = " "
-            }
-            var separator = ""
-            if !prefix.isEmpty {
-                separator = "/"
-            }
-
-            if let string = value as? String {
-                print("\(string)\(spacer)\(prefix)\(separator)\(key)")
-            } else {
-                if let refs = value as? [String: Any] {
-                    showReference(refs, repository: repository, withHash: withHash, prefix: "\(prefix)\(separator)\(key)")
-                }
-            }
-        }
     }
 }
 
