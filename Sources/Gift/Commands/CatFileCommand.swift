@@ -26,16 +26,20 @@ struct CatFileCommand: CommandProtocol {
         let repository: Repository
         do {
             repository = try Repository.find()
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         let object: GitObject
         do {
             object = try repository.readObject(sha: repository.findObject(name: options.object, type: type))
             print(try object.serialize())
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         return .success(())
@@ -43,7 +47,7 @@ struct CatFileCommand: CommandProtocol {
 }
 
 struct CatFileOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let type: GitObjectType?
     let object: String
 

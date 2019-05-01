@@ -27,22 +27,26 @@ struct HashObjectCommand: CommandProtocol {
         let repository: Repository
         do {
             repository = try Repository.find()
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         do {
             let sha = try repository.hashObject(fileURL: fileURL, type: type, withActuallyWrite: options.write)
             print(sha)
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
         return .success(())
     }
 }
 
 struct HashObjectoptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let type: GitObjectType?
     let write: Bool
     let path: String

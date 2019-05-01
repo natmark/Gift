@@ -10,8 +10,8 @@ import Commandant
 import GiftKit
 
 struct VersionCommand: CommandProtocol {
-    typealias Options = NoOptions<CommandantError<()>>
-    typealias ClientError = CommandantError<()>
+    typealias Options = NoOptions<ClientError>
+    typealias ClientError = GiftKitError
 
     let verb = "version"
     let function = "Display the current version of Gift"

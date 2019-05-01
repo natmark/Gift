@@ -22,15 +22,19 @@ struct TagCommand: CommandProtocol {
         let repository: Repository
         do {
             repository = try Repository.find()
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         if !options.name.isEmpty {
             do {
                 try repository.createTag(name: options.name, reference: options.object, withActuallyCreate: options.createTagObject)
+            } catch let error as GiftKitError {
+                return .failure(error)
             } catch let error {
-                fatalError(error.localizedDescription)
+                return .failure(.unknown(message: error.localizedDescription))
             }
         } else {
             do {
@@ -39,8 +43,10 @@ struct TagCommand: CommandProtocol {
                     fatalError("Cannot load refs[\"tags\"]")
                 }
                 GitReference.show(references: tags, repository: repository)
+            } catch let error as GiftKitError {
+                return .failure(error)
             } catch let error {
-                fatalError(error.localizedDescription)
+                return .failure(.unknown(message: error.localizedDescription))
             }
         }
         return .success(())
@@ -48,7 +54,7 @@ struct TagCommand: CommandProtocol {
 }
 
 struct TagOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let createTagObject: Bool
     let name: String
     let object: String

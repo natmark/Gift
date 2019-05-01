@@ -24,15 +24,17 @@ struct RevParseCommand: CommandProtocol {
         do {
             repository = try Repository.find()
             print(try repository.findObject(name: options.name, type: options.type))
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
         return .success(())
     }
 }
 
 struct RevParseOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let type: GitObjectType?
     let name: String
 

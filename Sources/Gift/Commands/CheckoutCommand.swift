@@ -27,8 +27,10 @@ struct CheckoutCommand: CommandProtocol {
             if object.identifier == .commit {
                 object = try repository.readObject(sha: (object as! GitCommit).kvlm["tree"] as! String)
             }
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         let path = URL(fileURLWithPath: options.path)
@@ -42,8 +44,10 @@ struct CheckoutCommand: CommandProtocol {
         } else {
             do {
                 try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true, attributes: nil)
+            } catch let error as GiftKitError {
+                return .failure(error)
             } catch let error {
-                fatalError(error.localizedDescription)
+                return .failure(.unknown(message: error.localizedDescription))
             }
         }
 
@@ -53,8 +57,10 @@ struct CheckoutCommand: CommandProtocol {
 
         do {
             try checkoutTree(tree, repository: repository, path: path)
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         return .success(())
@@ -76,7 +82,7 @@ struct CheckoutCommand: CommandProtocol {
 }
 
 struct CheckoutOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let commit: String
     let path: String
 

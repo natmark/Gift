@@ -24,16 +24,20 @@ struct LsTreeCommand: CommandProtocol {
         do {
             repository = try Repository.find()
             tree = try repository.readObject(type: GitTree.self, sha: options.object)
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         for leaf in tree.leafs {
             let object: GitObject
             do {
                 object = try repository.readObject(sha: leaf.sha)
+            } catch let error as GiftKitError {
+                return .failure(error)
             } catch let error {
-                fatalError(error.localizedDescription)
+                return .failure(.unknown(message: error.localizedDescription))
             }
             print("\(leaf.mode) \(object.identifier.rawValue) \(leaf.sha)\t\(leaf.path)")
         }
@@ -43,7 +47,7 @@ struct LsTreeCommand: CommandProtocol {
 }
 
 struct LsTreeOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let object: String
 
     public static func evaluate(_ m: CommandMode) -> Result<LsTreeOptions, CommandantError<LsTreeOptions.ClientError>> {

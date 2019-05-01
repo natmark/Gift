@@ -244,7 +244,7 @@ extension Repository {
         let data = try object.serialize()
         let byteArray = [UInt8](data)
         guard let objectFormatData = object.identifier.rawValue.data(using: .utf8), let dataSizeData = String(byteArray.count).data(using: .utf8) else {
-            throw GiftKitError.unknown(message: "Failed to convert string to data")
+            throw GiftKitError.failedWriteGitObject
         }
 
         let objectFormat = [UInt8](objectFormatData)

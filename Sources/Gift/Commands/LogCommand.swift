@@ -24,8 +24,10 @@ struct LogCommand: CommandProtocol {
         do {
             repository = try Repository.find()
             sha = try repository.findObject(name: options.commit)
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
         
         printLog(repository: repository, sha: sha)
@@ -63,7 +65,7 @@ struct LogCommand: CommandProtocol {
 }
 
 struct LogOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let commit: String
 
     public static func evaluate(_ m: CommandMode) -> Result<LogOptions, CommandantError<LogOptions.ClientError>> {
