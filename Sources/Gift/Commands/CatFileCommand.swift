@@ -35,7 +35,17 @@ struct CatFileCommand: CommandProtocol {
         let object: GitObject
         do {
             object = try repository.readObject(sha: repository.findObject(name: options.object, type: type))
-            print(try object.serialize())
+
+            switch  object.identifier {
+            case .blob:
+                print(String(data: (object as! GitBlob).blobData, encoding: .utf8) ?? "")
+            case .tag, .commit:
+                printKVLM(kvlm: (object as! KVLMContract).kvlm)
+            case .tree:
+                for tree in (object as! GitTree).leafs {
+                    print(tree.mode, tree.sha, tree.path)
+                }
+            }
         } catch let error as GiftKitError {
             return .failure(error)
         } catch let error {
@@ -43,6 +53,30 @@ struct CatFileCommand: CommandProtocol {
         }
 
         return .success(())
+    }
+
+    private func printKVLM(kvlm: [String: Any]) {
+        for key in kvlm.keys {
+            if key == "" {
+                continue
+            }
+
+            var values: [String] = kvlm[key] as? [String]
+                ?? []
+
+            if values.isEmpty {
+                if let value = kvlm[key] as? String {
+                    values = [value]
+                }
+            }
+
+            print(key, values.joined(separator: " "))
+        }
+
+        print()
+        if let message = kvlm[""] as? String {
+            print(message)
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import DataCompression
 
 public struct Repository {
     var workTreeURL: URL
@@ -258,13 +259,7 @@ extension Repository {
                 throw GiftKitError.failedResolvingSubpathName(pathComponents: ["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))])
             }
 
-            let compressedData: Data?
-            if #available(OSX 10.11, *) {
-                compressedData = try result.compress()
-            } else {
-                throw GiftKitError.unsupportedOSXVersion
-            }
-            guard let fileObject = compressedData else {
+            guard let fileObject = result.zip() else {
                 throw GiftKitError.failedCompressedObjectData
             }
             try fileObject.write(to: fileURL, options: .atomicWrite)
@@ -287,13 +282,7 @@ extension Repository {
         }
 
         let binaryData = try Data(contentsOf: fileURL, options: [])
-        let decompressedData: Data?
-        if #available(OSX 10.11, *) {
-            decompressedData = try binaryData.decompress(algorithm: .zlib)
-        } else {
-            throw GiftKitError.unsupportedOSXVersion
-        }
-        guard let data = decompressedData else {
+        guard let data = binaryData.unzip() else {
             throw GiftKitError.failedDecompressedObjectData
         }
 
@@ -306,7 +295,7 @@ extension Repository {
         guard let firstSpaceCharacterIndex = dataBytes.firstIndex(of: 0x20),
             let firstNullStringIndex = dataBytes.firstIndex(of: 0x00, skip: firstSpaceCharacterIndex),
             let format = String(bytes: Array(dataBytes.prefix(firstSpaceCharacterIndex)), encoding: .utf8),
-            let sizeString = String(bytes: dataBytes[firstSpaceCharacterIndex..<firstNullStringIndex], encoding: .utf8),
+            let sizeString = String(bytes: dataBytes[firstSpaceCharacterIndex + 1..<firstNullStringIndex], encoding: .utf8),
             let size = Int(sizeString)
             else {
             throw GiftKitError.failedDecompressedObjectData
@@ -332,8 +321,8 @@ extension Repository {
         case .blob:
             gitObjectMetaType = GitBlob.self
         }
-
-        let gitObject = try gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1)))
+        let objectData = Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1))
+        let gitObject = try gitObjectMetaType.init(repository: self, data: objectData)
 
         return gitObject
     }

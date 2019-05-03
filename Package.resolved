@@ -20,6 +20,15 @@
         }
       },
       {
+        "package": "DataCompression",
+        "repositoryURL": "https://github.com/mw99/DataCompression.git",
+        "state": {
+          "branch": null,
+          "revision": "0c232543ddf98f2cd00aba573d3253a4cb62b9be",
+          "version": "3.1.0"
+        }
+      },
+      {
         "package": "INI",
         "repositoryURL": "https://github.com/Bouke/INI.git",
         "state": {

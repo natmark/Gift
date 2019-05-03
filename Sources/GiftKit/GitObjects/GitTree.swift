@@ -17,6 +17,9 @@ public struct GitTree: GitObject {
 
     public init(repository: Repository?, data: Data?) throws {
         self.repository = repository
+        if let data = data {
+            try deserialize(data: data)
+        }
     }
 
     public func serialize() throws -> Data {
@@ -51,10 +54,11 @@ public struct GitTree: GitObject {
             throw GiftKitError.failedDeserializeGitTreeObject
         }
 
+        let sha = Array(dataBytes[firstNullStringIndex + 1..<firstNullStringIndex + 21]).map { String(format:"%02X", $0) }.joined().lowercased()
+
         guard
             let mode = String(data: Data(bytes: Array(dataBytes[start..<firstSpaceCharacterIndex])), encoding: .utf8),
-            let path = String(data: Data(bytes:Array(dataBytes[firstSpaceCharacterIndex + 1..<firstNullStringIndex])), encoding: .utf8),
-            let sha = String(data: Data(bytes:Array(dataBytes[firstNullStringIndex + 1..<firstNullStringIndex + 21])), encoding: .utf8)
+            let path = String(data: Data(bytes:Array(dataBytes[firstSpaceCharacterIndex + 1..<firstNullStringIndex])), encoding: .utf8)
         else {
             throw GiftKitError.failedDeserializeGitTreeObject
         }

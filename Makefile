@@ -1,11 +1,11 @@
 xcode:
 	swift package generate-xcodeproj
 build:
-	swift build
+	swift build -Xswiftc -target -Xswiftc x86_64-apple-macosx10.11
 test:
 	swift test
 release:
-	swift build -c release
+	swift build -c release -Xswiftc -target -Xswiftc x86_64-apple-macosx10.11
 
 INSTALL_DIR = /usr/local/bin
 install: release
