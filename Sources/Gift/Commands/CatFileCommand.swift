@@ -19,7 +19,8 @@ struct CatFileCommand: CommandProtocol {
     let function = "Provide content of repository objects"
 
     func run(_ options: CatFileCommand.Options) -> Result<(), CatFileCommand.ClientError> {
-        guard let type = options.type else {
+
+        guard let catOperationType = CatOperationType(rawValue: options.operation) else {
             fatalError("Type argument is invalid")
         }
 
@@ -32,18 +33,34 @@ struct CatFileCommand: CommandProtocol {
             return .failure(.unknown(message: error.localizedDescription))
         }
 
-        let object: GitObject
-        do {
-            object = try repository.readObject(sha: repository.findObject(name: options.object, type: type))
+        let type = catOperationType.gitObjectType
 
-            switch  object.identifier {
-            case .blob:
-                print(String(data: (object as! GitBlob).blobData, encoding: .utf8) ?? "")
-            case .tag, .commit:
-                printKVLM(kvlm: (object as! KVLMContract).kvlm)
-            case .tree:
-                for tree in (object as! GitTree).leafs {
-                    print(tree.mode, tree.sha, tree.path)
+        do {
+            let object = try repository.readObject(sha: repository.findObject(name: options.object, type: type))
+
+            if catOperationType == .size {
+                print(try object.serialize().count)
+            } else if catOperationType == .type {
+                print(object.identifier)
+            } else if catOperationType == .preview {
+                switch  object.identifier {
+                case .blob:
+                    print(String(data: (object as! GitBlob).blobData, encoding: .utf8) ?? "")
+                case .tag, .commit:
+                    printKVLM(kvlm: (object as! KVLMContract).kvlm)
+                case .tree:
+                    for tree in (object as! GitTree).leafs {
+                        print(tree.mode, tree.sha, tree.path)
+                    }
+                }
+            } else {
+                switch  object.identifier {
+                case .blob:
+                    print(String(data: (object as! GitBlob).blobData, encoding: .utf8) ?? "")
+                case .tag, .commit:
+                    printKVLM(kvlm: (object as! KVLMContract).kvlm)
+                case .tree:
+                    print(String(data: try object.serialize(), encoding: .ascii) ?? "")
                 }
             }
         } catch let error as GiftKitError {
@@ -80,14 +97,39 @@ struct CatFileCommand: CommandProtocol {
     }
 }
 
+enum CatOperationType: String {
+    case blob
+    case commit
+    case tree
+    case tag
+    case type
+    case size
+    case preview
+
+    var gitObjectType: GitObjectType? {
+        switch self {
+        case .blob:
+            return .blob
+        case .commit:
+            return .commit
+        case .tree:
+            return .tree
+        case .tag:
+            return .tag
+        case .type, .size, .preview:
+            return nil
+        }
+    }
+}
+
 struct CatFileOptions: OptionsProtocol {
     typealias ClientError = GiftKitError
-    let type: GitObjectType?
+    let operation: String
     let object: String
 
     public static func evaluate(_ m: CommandMode) -> Result<CatFileOptions, CommandantError<CatFileOptions.ClientError>> {
         return curry(self.init)
-            <*> m <| Argument(usage: "Specify the type [blob, commit, tag, tree]")
+            <*> m <| Argument(usage: "Specify the type [blob, commit, tag, tree] or option [type, size, preview]")
             <*> m <| Argument(usage: "The object to display")
     }
 }
