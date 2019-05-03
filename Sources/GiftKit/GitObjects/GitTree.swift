@@ -27,11 +27,20 @@ public struct GitTree: GitObject {
         for leaf in leafs {
             guard
                 let modeData = leaf.mode.data(using: .utf8),
-                let pathData = leaf.path.data(using: .utf8),
-                let shaData = leaf.sha.data(using: .utf8)
+                let pathData = leaf.path.data(using: .utf8)
             else {
                 throw GiftKitError.failedSerializeGitTreeObject
             }
+            var sha = leaf.sha
+            var shaData = [UInt8]()
+            while !sha.isEmpty {
+                guard let hex = UInt8(sha.prefix(2), radix: 16) else {
+                    throw GiftKitError.failedSerializeGitTreeObject
+                }
+                shaData.append(hex)
+                sha = String(sha.dropFirst(2))
+            }
+
             result += [UInt8](modeData)
             result += [0x20]
             result += [UInt8](pathData)
