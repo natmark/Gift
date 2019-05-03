@@ -23,7 +23,7 @@ struct LsTreeCommand: CommandProtocol {
         let tree: GitTree
         do {
             repository = try Repository.find()
-            tree = try repository.readObject(type: GitTree.self, sha: options.object)
+            tree = try repository.readObject(type: GitTree.self, sha: repository.findObject(name: options.object, type: .tree))
         } catch let error as GiftKitError {
             return .failure(error)
         } catch let error {
