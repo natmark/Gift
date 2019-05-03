@@ -1,7 +1,8 @@
 import Foundation
 import Commandant
+import GiftKit
 
-let registry = CommandRegistry<CommandantError<()>>()
+let registry = CommandRegistry<GiftKitError>()
 registry.register(VersionCommand())
 registry.register(InitCommand())
 registry.register(CatFileCommand())

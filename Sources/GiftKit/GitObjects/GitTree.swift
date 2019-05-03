@@ -17,6 +17,9 @@ public struct GitTree: GitObject {
 
     public init(repository: Repository?, data: Data?) throws {
         self.repository = repository
+        if let data = data {
+            try deserialize(data: data)
+        }
     }
 
     public func serialize() throws -> Data {
@@ -24,11 +27,20 @@ public struct GitTree: GitObject {
         for leaf in leafs {
             guard
                 let modeData = leaf.mode.data(using: .utf8),
-                let pathData = leaf.path.data(using: .utf8),
-                let shaData = leaf.sha.data(using: .utf8)
+                let pathData = leaf.path.data(using: .utf8)
             else {
                 throw GiftKitError.failedSerializeGitTreeObject
             }
+            var sha = leaf.sha
+            var shaData = [UInt8]()
+            while !sha.isEmpty {
+                guard let hex = UInt8(sha.prefix(2), radix: 16) else {
+                    throw GiftKitError.failedSerializeGitTreeObject
+                }
+                shaData.append(hex)
+                sha = String(sha.dropFirst(2))
+            }
+
             result += [UInt8](modeData)
             result += [0x20]
             result += [UInt8](pathData)
@@ -51,10 +63,11 @@ public struct GitTree: GitObject {
             throw GiftKitError.failedDeserializeGitTreeObject
         }
 
+        let sha = Array(dataBytes[firstNullStringIndex + 1..<firstNullStringIndex + 21]).map { String(format:"%02X", $0) }.joined().lowercased()
+
         guard
             let mode = String(data: Data(bytes: Array(dataBytes[start..<firstSpaceCharacterIndex])), encoding: .utf8),
-            let path = String(data: Data(bytes:Array(dataBytes[firstSpaceCharacterIndex + 1..<firstNullStringIndex])), encoding: .utf8),
-            let sha = String(data: Data(bytes:Array(dataBytes[firstNullStringIndex + 1..<firstNullStringIndex + 21])), encoding: .utf8)
+            let path = String(data: Data(bytes:Array(dataBytes[firstSpaceCharacterIndex + 1..<firstNullStringIndex])), encoding: .utf8)
         else {
             throw GiftKitError.failedDeserializeGitTreeObject
         }

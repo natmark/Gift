@@ -17,6 +17,9 @@ public struct GitBlob: GitObject {
 
     public init(repository: Repository?, data: Data?) throws {
         self.repository = repository
+        if let data = data {
+            try deserialize(data: data)
+        }
     }
 
     public func serialize() throws -> Data {

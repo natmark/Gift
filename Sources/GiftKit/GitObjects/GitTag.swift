@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct GitTag: GitObject {
+public struct GitTag: GitObject, KVLMContract {
     public var kvlm: [String: Any] = [:]
     public var identifier: GitObjectType {
         return .tag
@@ -17,6 +17,9 @@ public struct GitTag: GitObject {
 
     public init(repository: Repository?, data: Data?) throws {
         self.repository = repository
+        if let data = data {
+            try deserialize(data: data)
+        }
     }
 
     public func serialize() throws -> Data {

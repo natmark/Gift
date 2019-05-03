@@ -12,8 +12,8 @@ import Curry
 import GiftKit
 
 struct ShowRefCommand: CommandProtocol {
-    typealias Options = NoOptions<CommandantError<()>>
-    typealias ClientError = Options.ClientError
+    typealias Options = NoOptions<ClientError>
+    typealias ClientError = GiftKitError
 
     let verb = "show-ref"
     let function = "List references."
@@ -25,8 +25,10 @@ struct ShowRefCommand: CommandProtocol {
         do {
             repository = try Repository.find()
             refs = try repository.getReferenceList()
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         GitReference.show(references: refs, repository: repository, prefix:"refs")

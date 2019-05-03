@@ -22,8 +22,10 @@ struct InitCommand: CommandProtocol {
         let worktreeURL = URL(fileURLWithPath: options.path)
         do {
             try Repository.create(with: worktreeURL)
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         return .success(())
@@ -31,7 +33,7 @@ struct InitCommand: CommandProtocol {
 }
 
 struct InitOptions: OptionsProtocol {
-    typealias ClientError = CommandantError<()>
+    typealias ClientError = GiftKitError
     let path: String
 
     public static func evaluate(_ m: CommandMode) -> Result<InitOptions, CommandantError<InitOptions.ClientError>> {

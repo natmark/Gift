@@ -11,13 +11,14 @@ let package = Package(
             targets: ["GiftKit"])
     ],
     dependencies: [
+        .package(url: "https://github.com/mw99/DataCompression.git", .exact("3.1.0")),
         .package(url: "https://github.com/Carthage/Commandant.git", from: "0.15.0"),
         .package(url: "https://github.com/thoughtbot/Curry.git", from: "4.0.1"),
         .package(url: "https://github.com/Bouke/INI.git", from: "1.2.0"),
     ],
     targets: [
         .target(name: "gift", dependencies: ["Commandant", "Curry", "GiftKit"]),
-        .target(name: "GiftKit", dependencies: ["INI"]),
+        .target(name: "GiftKit", dependencies: ["INI", "DataCompression"]),
         .testTarget(name: "GiftKitTests", dependencies: ["GiftKit"]),
     ]
 )

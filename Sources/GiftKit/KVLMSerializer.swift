@@ -21,8 +21,6 @@ public struct KVLMSerializer {
             if values.isEmpty {
                 if let value = kvlm[key] as? String {
                     values = [value]
-                } else {
-
                 }
             }
 
@@ -57,10 +55,10 @@ public struct KVLMSerializer {
 
         let dataBytes = [UInt8](data)
 
-        // 0x00 NUL (null string)
         // 0x20 Space
-        guard let firstSpaceCharacterIndex = dataBytes.firstIndex(of: 0x20),
-            let firstNullStringIndex = dataBytes.firstIndex(of: 0x00)
+        // 0x0a LF (line break)
+        guard let firstSpaceCharacterIndex = dataBytes.firstIndex(of: 0x20, skip: startIndex),
+            let firstNullStringIndex = dataBytes.firstIndex(of: 0x0a, skip: startIndex)
             else {
                 throw GiftKitError.failedDeserializeGitCommitObject
         }
@@ -87,6 +85,7 @@ public struct KVLMSerializer {
                     throw GiftKitError.failedKVLMTypeCast
             }
             endIndex = index
+            // 0x20 Space
             if dataBytes[endIndex + 1] != 0x20 {
                 break
             }

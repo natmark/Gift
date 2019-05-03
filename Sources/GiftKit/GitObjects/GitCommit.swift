@@ -7,8 +7,12 @@
 
 import Foundation
 
-public struct GitCommit: GitObject {
+public protocol KVLMContract {
     // Key-Value List with Message
+    var kvlm: [String: Any] { set get }
+}
+
+public struct GitCommit: GitObject, KVLMContract {
     public var kvlm: [String: Any] = [:]
     public var identifier: GitObjectType {
         return .commit

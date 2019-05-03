@@ -1,4 +1,5 @@
 import Foundation
+import DataCompression
 
 public struct Repository {
     var workTreeURL: URL
@@ -95,7 +96,7 @@ public struct Repository {
 extension Repository {
     public func resolveObject(name: String) throws -> [String] {
         func isHash(string: String) -> Bool {
-            let pattern = "^[0-9A-Fa-f]{1,16}$"
+            let pattern = "^[0-9A-Fa-f]{1,40}$"
             guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
             let matches = regex.matches(in: string, range: NSRange(location: 0, length: string.count))
             return matches.count > 0
@@ -191,11 +192,11 @@ extension Repository {
         var result = [String: Any]()
 
         for fileURL in try referencePath.contents().sorted(by: { $0.path < $1.path }) {
-            let lastPathComponent = fileURL.lastPathComponent
+            let pathComponents = try computeSubPathComponents(from: fileURL)
             if fileURL.isDirectory {
-                result[lastPathComponent] = try getReferenceList(pathComponents: [lastPathComponent])
+                result[fileURL.lastPathComponent] = try getReferenceList(pathComponents: pathComponents)
             } else {
-                result[lastPathComponent] = try resolveReference(pathComponents: [lastPathComponent])
+                result[fileURL.lastPathComponent] = try resolveReference(pathComponents: pathComponents)
             }
         }
 
@@ -244,7 +245,7 @@ extension Repository {
         let data = try object.serialize()
         let byteArray = [UInt8](data)
         guard let objectFormatData = object.identifier.rawValue.data(using: .utf8), let dataSizeData = String(byteArray.count).data(using: .utf8) else {
-            throw GiftKitError.unknown(message: "Failed to convert string to data")
+            throw GiftKitError.failedWriteGitObject
         }
 
         let objectFormat = [UInt8](objectFormatData)
@@ -253,23 +254,15 @@ extension Repository {
         let result = Data(bytes: objectFormat + [0x20] + dataSize + [0x00] + byteArray)
         let sha = result.sha1()
 
-
         if actuallyWrite {
             guard let fileURL = try self.computeSubFilePathFromPathComponents(["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))], withMakeDirectory: true) else {
                 throw GiftKitError.failedResolvingSubpathName(pathComponents: ["objects", String(sha.prefix(2)), String(sha.suffix(sha.count - 2))])
             }
 
-            let compressedData: Data?
-            if #available(OSX 10.11, *) {
-                compressedData = try result.compress()
-            } else {
-                throw GiftKitError.unsupportedOSXVersion
-            }
-            guard let data = compressedData, let fileObject = String(data: data, encoding: .utf8) else {
+            guard let fileObject = result.zip() else {
                 throw GiftKitError.failedCompressedObjectData
             }
-
-            try fileObject.write(to: fileURL, atomically: true, encoding: .utf8)
+            try fileObject.write(to: fileURL, options: .atomicWrite)
         }
 
         return sha
@@ -289,13 +282,7 @@ extension Repository {
         }
 
         let binaryData = try Data(contentsOf: fileURL, options: [])
-        let decompressedData: Data?
-        if #available(OSX 10.11, *) {
-            decompressedData = try binaryData.decompress(algorithm: .zlib)
-        } else {
-            throw GiftKitError.unsupportedOSXVersion
-        }
-        guard let data = decompressedData else {
+        guard let data = binaryData.unzip() else {
             throw GiftKitError.failedDecompressedObjectData
         }
 
@@ -308,7 +295,7 @@ extension Repository {
         guard let firstSpaceCharacterIndex = dataBytes.firstIndex(of: 0x20),
             let firstNullStringIndex = dataBytes.firstIndex(of: 0x00, skip: firstSpaceCharacterIndex),
             let format = String(bytes: Array(dataBytes.prefix(firstSpaceCharacterIndex)), encoding: .utf8),
-            let sizeString = String(bytes: dataBytes[firstSpaceCharacterIndex..<firstNullStringIndex], encoding: .utf8),
+            let sizeString = String(bytes: dataBytes[firstSpaceCharacterIndex + 1..<firstNullStringIndex], encoding: .utf8),
             let size = Int(sizeString)
             else {
             throw GiftKitError.failedDecompressedObjectData
@@ -334,8 +321,8 @@ extension Repository {
         case .blob:
             gitObjectMetaType = GitBlob.self
         }
-
-        let gitObject = try gitObjectMetaType.init(repository: self, data: Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1)))
+        let objectData = Data(bytes: dataBytes.dropFirst(firstNullStringIndex+1))
+        let gitObject = try gitObjectMetaType.init(repository: self, data: objectData)
 
         return gitObject
     }
@@ -381,6 +368,20 @@ extension Repository {
                 return ""
             }
         }
+    }
+
+    private func computeSubPathComponents(from subpath: URL) throws -> [String] {
+        let basePathComponents = gitDirectoryURL.pathComponents
+        var subPathComponents = subpath.pathComponents
+
+        for component in basePathComponents {
+            if let first = subPathComponents.first, component == first {
+                subPathComponents = Array(subPathComponents.dropFirst())
+            } else {
+                throw GiftKitError.failedResolvingSubpathName(pathComponents: subPathComponents)
+            }
+        }
+        return subPathComponents
     }
 
     @discardableResult
