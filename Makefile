@@ -3,7 +3,7 @@ xcode:
 build:
 	swift build -Xswiftc -target -Xswiftc x86_64-apple-macosx10.11
 test:
-	swift test
+	swift test -Xswiftc -target -Xswiftc x86_64-apple-macosx10.11
 release:
 	swift build -c release -Xswiftc -target -Xswiftc x86_64-apple-macosx10.11
 
