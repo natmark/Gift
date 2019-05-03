@@ -23,7 +23,7 @@ struct CheckoutCommand: CommandProtocol {
         var object: GitObject
         do {
             repository = try Repository.find()
-            object = try repository.readObject(sha: options.commit)
+            object = try repository.readObject(sha: repository.findObject(name: options.commit))
             if object.identifier == .commit {
                 object = try repository.readObject(sha: (object as! GitCommit).kvlm["tree"] as! String)
             }
