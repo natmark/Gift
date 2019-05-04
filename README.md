@@ -4,8 +4,11 @@
 Gift is a git like version control system written in Swift
 
 ## Instalation
-`$ git clone git@github.com:natmark/Gift.git`
-`$ make install`
+- Clone this repository
+  - `$ git clone git@github.com:natmark/Gift.git`
+
+- Build from source and locate binary to `/usr/local/bin/`
+  - `$ make install`
 
 ## Usage
 ```
