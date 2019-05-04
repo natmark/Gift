@@ -222,7 +222,9 @@ struct GitIndex {
             guard let pathEndIndex = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x00, skip: index) else {
                 throw GiftKitError.indexFileFormatError(message: "binary read error.")
             }
-            let path = dataBytes[index..<pathEndIndex]
+            guard let pathName = String(bytes: dataBytes[index..<pathEndIndex], encoding: .ascii) else {
+                throw GiftKitError.indexFileFormatError(message: "binary read error.")
+            }
             index = pathEndIndex + 1
 
             guard let entryCountEnd = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x20, skip: index) else {
@@ -241,18 +243,17 @@ struct GitIndex {
 
             // 0x2d: hyphen (-)
             if entryCount.first == 0x2d {
-                let pathName = String(bytes: path, encoding: .ascii)
-                print(pathName ?? "")
+                print("invalidate", pathName.isEmpty ? "/" : pathName)
             } else {
                 if index + 20 > endIndex {
                     throw GiftKitError.indexFileFormatError(message: "binary read error.")
                 }
                 let sha1 = dataBytes[index..<index+20].map { String(format:"%02X", $0) }.joined().lowercased()
-                let pathName = String(bytes: path, encoding: .ascii)
-                print(sha1, pathName ?? "")
+                print(sha1, pathName.isEmpty ? "/" : pathName)
 
                 index += 20
             }
+            print("subtree:", String(bytes: subtrees, encoding: .ascii) ?? "", "entry:", String(bytes: entryCount, encoding: .ascii) ?? "")
         }
     }
     private func parseExtensionReuc(dataBytes: [UInt8], index: Int, size: Int) throws {
@@ -263,7 +264,9 @@ struct GitIndex {
             guard let pathEndIndex = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x00, skip: index) else {
                 throw GiftKitError.indexFileFormatError(message: "binary read error.")
             }
-            let path = dataBytes[index..<pathEndIndex]
+            guard let pathName = String(bytes: dataBytes[index..<pathEndIndex], encoding: .ascii) else {
+                throw GiftKitError.indexFileFormatError(message: "binary read error.")
+            }
             index = pathEndIndex + 1
 
             var modes = [String]()
@@ -288,15 +291,13 @@ struct GitIndex {
 
             for i in 0..<3 {
                 if modes[i] == "0" {
-                    let pathName = String(bytes: path, encoding: .ascii)
-                    print(pathName ?? "")
+                    print("invalidate", pathName.isEmpty ? "/" : pathName)
                 } else {
                     if index + 20 > endIndex {
                         throw GiftKitError.indexFileFormatError(message: "binary read error.")
                     }
                     let sha1 = dataBytes[index..<index+20].map { String(format:"%02X", $0) }.joined().lowercased()
-                    let pathName = String(bytes: path, encoding: .ascii)
-                    print(sha1, pathName ?? "")
+                    print(sha1, pathName.isEmpty ? "/" : pathName)
                     index += 20
 
                 }
