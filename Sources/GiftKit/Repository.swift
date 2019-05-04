@@ -5,6 +5,7 @@ public struct Repository {
     var workTreeURL: URL
     var gitDirectoryURL: URL
     var config: GitConfig?
+    var index: GitIndex?
 
     private init(workTreeURL: URL, checkRepository: Bool = true) throws {
         let disableAllCheck = !checkRepository
@@ -21,6 +22,11 @@ public struct Repository {
             self.config = GitConfig(from: configURL)
         } else if !disableAllCheck {
             throw GiftKitError.configFileMissing
+        }
+
+        let indexURL = gitDirectoryURL.appendingPathComponent("index")
+        if indexURL.isExist {
+            self.index = try GitIndex(from: indexURL)
         }
 
         if disableAllCheck { return }
@@ -94,6 +100,12 @@ public struct Repository {
 }
 
 extension Repository {
+    public func stageObject(sha: String) throws {
+        if self.index == nil {
+            var gitIndex = try GitIndex()
+        }
+    }
+
     public func resolveObject(name: String) throws -> [String] {
         func isHash(string: String) -> Bool {
             let pattern = "^[0-9A-Fa-f]{1,40}$"

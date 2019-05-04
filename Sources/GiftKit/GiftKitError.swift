@@ -13,6 +13,7 @@ public enum GiftKitError: Error {
     case noObjectReference(name: String)
     case ambiguousObjectReference(message: String)
     case configFileMissing
+    case indexFileFormatError(message: String)
     case unsupportedRepositoryFormatVersion(version: String)
     case isNotEmpty(url: URL)
     case isNotDirectory(url: URL)
@@ -46,6 +47,8 @@ extension GiftKitError: LocalizedError {
             return string
         case .configFileMissing:
             return "Configuration file missing."
+        case .indexFileFormatError(let message):
+            return "Index file format error. \(message)"
         case .unsupportedRepositoryFormatVersion(let version):
             return "Unsupported repositoryformatversion \(version)."
         case .isNotEmpty(let path):
