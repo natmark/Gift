@@ -43,19 +43,10 @@ struct CacheTree {
     var sha: String?
 }
 
-struct CacheReuc {
-    var mode1: String
-    var mode2: String
-    var mode3: String
-    var pathName: String
-    var shaList: [String]
-}
-
 struct GitIndex {
     var headerVersion: Int?
     var cacheEntries = [CacheEntry]()
     var cacheTrees = [CacheTree]()
-    var cacheReucs = [CacheReuc]()
 
     init(from indexURL: URL? = nil) throws {
         guard let indexURL = indexURL else {
@@ -280,59 +271,12 @@ struct GitIndex {
         }
     }
     // REUC: resolve undo conflict
-    private mutating func parseExtensionReuc(dataBytes: [UInt8], index: Int, size: Int) throws {
+    private func parseExtensionReuc(dataBytes: [UInt8], index: Int, size: Int) throws {
         // Parse payload of resolve undo extension
-        let endIndex = index + size
-        var index = index
-        while index < endIndex {
-            guard let pathEndIndex = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x00, skip: index) else {
-                throw GiftKitError.indexFileFormatError(message: "binary read error.")
-            }
-            guard let pathName = String(bytes: dataBytes[index..<pathEndIndex], encoding: .ascii) else {
-                throw GiftKitError.indexFileFormatError(message: "binary read error.")
-            }
-            index = pathEndIndex + 1
-
-            var modes = [String]()
-
-            guard let mode1EndIndex = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x00, skip: index), let mode1 = String(bytes: dataBytes[index..<mode1EndIndex], encoding: .ascii) else {
-                throw GiftKitError.indexFileFormatError(message: "binary read error.")
-            }
-            modes.append(mode1)
-            index = mode1EndIndex + 1
-
-            guard let mode2EndIndex = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x00, skip: index), let mode2 = String(bytes: dataBytes[index..<mode2EndIndex], encoding: .ascii) else {
-                throw GiftKitError.indexFileFormatError(message: "binary read error.")
-            }
-            modes.append(mode2)
-            index = mode2EndIndex + 1
-
-            guard let mode3EndIndex = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x00, skip: index), let mode3 = String(bytes: dataBytes[index..<mode3EndIndex], encoding: .ascii) else {
-                throw GiftKitError.indexFileFormatError(message: "binary read error.")
-            }
-            modes.append(mode3)
-            index = mode3EndIndex + 1
-
-            var shaList = [String]()
-            for i in 0..<3 {
-                if modes[i] == "0" {
-                    print("invalidate", pathName.isEmpty ? "/" : pathName)
-                } else {
-                    if index + 20 > endIndex {
-                        throw GiftKitError.indexFileFormatError(message: "binary read error.")
-                    }
-                    let sha1 = dataBytes[index..<index+20].map { String(format:"%02X", $0) }.joined().lowercased()
-                    print(sha1, pathName.isEmpty ? "/" : pathName)
-                    shaList.append(sha1)
-                    index += 20
-                }
-            }
-            let cacheReuc = CacheReuc(mode1: mode1, mode2: mode2, mode3: mode3, pathName: pathName, shaList: shaList)
-
-            self.cacheReucs.append(cacheReuc)
-        }
+        fatalError("not impremented")
     }
     private func parseExtensionLink(dataBytes: [UInt8], index: Int, size: Int) throws {
         // Parse payload of split index extension
+        fatalError("not impremented")
     }
 }
