@@ -17,7 +17,7 @@ import Foundation
    | ...                                                       |
  */
 
-struct IndexEntry {
+struct CacheEntry {
     var createdAt: Date
     var caretedAtNanosecond: Int
     var updatedAt: Date
@@ -36,9 +36,26 @@ struct IndexEntry {
     var pathName: String
 }
 
+struct CacheTree {
+    var entryCount: Int
+    var subtreeCount: Int
+    var pathName: String
+    var sha: String?
+}
+
+struct CacheReuc {
+    var mode1: String
+    var mode2: String
+    var mode3: String
+    var pathName: String
+    var shaList: [String]
+}
+
 struct GitIndex {
     var headerVersion: Int?
-    var entries = [IndexEntry]()
+    var cacheEntries = [CacheEntry]()
+    var cacheTrees = [CacheTree]()
+    var cacheReucs = [CacheReuc]()
 
     init(from indexURL: URL? = nil) throws {
         guard let indexURL = indexURL else {
@@ -168,7 +185,7 @@ struct GitIndex {
 
         index += 8 - (index - entryBegin) % 8
 
-        let entry = IndexEntry(createdAt: Date(timeIntervalSince1970: TimeInterval(createdAtUnixTime)),
+        let entry = CacheEntry(createdAt: Date(timeIntervalSince1970: TimeInterval(createdAtUnixTime)),
                                caretedAtNanosecond: createdAtMilisecond,
                                updatedAt: Date(timeIntervalSince1970: TimeInterval(updatedAtUnixTime)),
                                updatedAtNanosecond: updatedAtMilisecond,
@@ -185,12 +202,12 @@ struct GitIndex {
                                nameLength: nameLength,
                                pathName: filePath)
 
-        self.entries.append(entry)
+        self.cacheEntries.append(entry)
 
         return index
     }
 
-    private func parseExtension(dataBytes: [UInt8], index: Int) throws -> Int {
+    private mutating func parseExtension(dataBytes: [UInt8], index: Int) throws -> Int {
         var index = index
         guard let signature = String(bytes: dataBytes[index..<index+4], encoding: .ascii) else {
             throw GiftKitError.indexFileFormatError(message: "binary read error.")
@@ -214,7 +231,7 @@ struct GitIndex {
 
         return index + size
     }
-    private func parseExtensionTree(dataBytes: [UInt8], index: Int, size: Int) throws {
+    private mutating func parseExtensionTree(dataBytes: [UInt8], index: Int, size: Int) throws {
         // Parse payload of cached tree extension
         let endIndex = index + size
         var index = index
@@ -232,6 +249,9 @@ struct GitIndex {
             }
 
             let entryCount = dataBytes[index..<entryCountEnd]
+            guard let entryCountString = String(bytes: entryCount, encoding: .ascii), let entryCountSize = Int(entryCountString) else {
+                throw GiftKitError.indexFileFormatError(message: "binary read error.")
+            }
             index = entryCountEnd + 1
 
             guard let subtreesEnd = Array(dataBytes[0..<endIndex]).firstIndex(of: 0x0a, skip: index) else {
@@ -239,24 +259,28 @@ struct GitIndex {
             }
 
             let subtrees = dataBytes[index..<subtreesEnd]
+            guard let subtreesString = String(bytes: subtrees, encoding: .ascii), let subtreeCountSize = Int(subtreesString) else {
+                throw GiftKitError.indexFileFormatError(message: "binary read error.")
+            }
             index = subtreesEnd + 1
 
+            var sha1: String?
             // 0x2d: hyphen (-)
             if entryCount.first == 0x2d {
-                print("invalidate", pathName.isEmpty ? "/" : pathName)
             } else {
                 if index + 20 > endIndex {
                     throw GiftKitError.indexFileFormatError(message: "binary read error.")
                 }
-                let sha1 = dataBytes[index..<index+20].map { String(format:"%02X", $0) }.joined().lowercased()
-                print(sha1, pathName.isEmpty ? "/" : pathName)
-
+                sha1 = dataBytes[index..<index+20].map { String(format:"%02X", $0) }.joined().lowercased()
                 index += 20
             }
-            print("subtree:", String(bytes: subtrees, encoding: .ascii) ?? "", "entry:", String(bytes: entryCount, encoding: .ascii) ?? "")
+
+            let cacheTree = CacheTree(entryCount: entryCountSize, subtreeCount: subtreeCountSize, pathName: pathName, sha: sha1)
+            self.cacheTrees.append(cacheTree)
         }
     }
-    private func parseExtensionReuc(dataBytes: [UInt8], index: Int, size: Int) throws {
+    // REUC: resolve undo conflict
+    private mutating func parseExtensionReuc(dataBytes: [UInt8], index: Int, size: Int) throws {
         // Parse payload of resolve undo extension
         let endIndex = index + size
         var index = index
@@ -289,6 +313,7 @@ struct GitIndex {
             modes.append(mode3)
             index = mode3EndIndex + 1
 
+            var shaList = [String]()
             for i in 0..<3 {
                 if modes[i] == "0" {
                     print("invalidate", pathName.isEmpty ? "/" : pathName)
@@ -298,10 +323,13 @@ struct GitIndex {
                     }
                     let sha1 = dataBytes[index..<index+20].map { String(format:"%02X", $0) }.joined().lowercased()
                     print(sha1, pathName.isEmpty ? "/" : pathName)
+                    shaList.append(sha1)
                     index += 20
-
                 }
             }
+            let cacheReuc = CacheReuc(mode1: mode1, mode2: mode2, mode3: mode3, pathName: pathName, shaList: shaList)
+
+            self.cacheReucs.append(cacheReuc)
         }
     }
     private func parseExtensionLink(dataBytes: [UInt8], index: Int, size: Int) throws {
