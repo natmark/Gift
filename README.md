@@ -10,11 +10,12 @@ Gift is a git like version control system written in Swift
 - Build from source and locate binary to `/usr/local/bin/`
   - `$ make install`
 
-## Usage
+## Usage (Currently supports the following commands)
 ```
 $ gift help
 Available commands:
 
+   add           Add file contents to the index
    cat-file      Provide content of repository objects
    checkout      Checkout a commit inside of a directory.
    hash-object   Compute object ID and optionally creates a blob from a file

@@ -13,6 +13,7 @@ registry.register(CheckoutCommand())
 registry.register(ShowRefCommand())
 registry.register(TagCommand())
 registry.register(RevParseCommand())
+registry.register(AddCommand())
 
 let helpCommand = HelpCommand(registry: registry)
 registry.register(helpCommand)
