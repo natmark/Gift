@@ -22,15 +22,15 @@ struct CacheEntry {
     var caretedAtNanosecond: Int
     var updatedAt: Date
     var updatedAtNanosecond: Int
-    var dev: Int
+    var deviceID: Int
     var inode: Int
     var mode: String
     var uid: Int
     var gid: Int
-    var size: Int
+    var size: UInt64
     var sha: String
     var assumeValidFlag: Bool
-    var extendedFlag: String
+    var extendedFlag: Bool
     var stageFlag: Int
     var nameLength: Int
     var pathName: String
@@ -47,11 +47,14 @@ struct GitIndex {
     var headerVersion: Int?
     var cacheEntries = [CacheEntry]()
     var cacheTrees = [CacheTree]()
+    var indexURL: URL
 
-    init(from indexURL: URL? = nil) throws {
-        guard let indexURL = indexURL else {
+    init(from indexURL: URL) throws {
+        self.indexURL = indexURL
+        if !indexURL.isExist {
             return
         }
+
         let fileData = try Data(contentsOf: indexURL, options: [])
         let dataBytes = [UInt8](fileData)
 
@@ -94,6 +97,116 @@ struct GitIndex {
                 currentIndex = try parseExtension(dataBytes: dataBytes, index: currentIndex)
             }
         }
+    }
+
+    func write() throws {
+        var dataBytes = [UInt8]()
+        dataBytes += [0x44, 0x49, 0x52, 0x43] // DIRC
+        dataBytes += [0x00, 0x00, 0x00, 0x02] // Version 2
+        dataBytes += hexaToBytes(hexString: String(format: "%08X", self.cacheEntries.count)) // Entry Size
+        var entryBegin = 0
+
+        // Entries
+        for cacheEntry in cacheEntries {
+            entryBegin = dataBytes.count
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.createdAt.timeIntervalSince1970)) // createdAtUnixTime
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.caretedAtNanosecond)) // createdAtNanosec
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.updatedAt.timeIntervalSince1970)) // updatedAtUnixTime
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.updatedAtNanosecond)) // updatedAtNanosec
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.deviceID)) // deviceID
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.inode)) // inode
+            guard let decimalEntryMode = Int(cacheEntry.mode, radix: 8) else {
+                throw GiftKitError.failedCachedObjectFieldsTypeCast
+            }
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", decimalEntryMode)) // mode
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.uid)) // uid
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.gid)) // gid
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.size)) // size
+            dataBytes += try Array(cacheEntry.sha).eachSlice(2) { "\($0[0])\($0[1])"}.map {
+                if let decimal = UInt8($0, radix: 16) {
+                    return decimal
+                } else {
+                    throw GiftKitError.failedCachedObjectFieldsTypeCast
+                }
+            }
+            var binaryString = ""
+            binaryString += cacheEntry.assumeValidFlag == true ? "1": "0"
+            binaryString += cacheEntry.extendedFlag == true ? "1": "0"
+            let stageFlag = String(cacheEntry.stageFlag, radix: 2)
+            binaryString += String(Array(repeating: "0", count: 2 - stageFlag.count).joined() + stageFlag)
+
+            let nameLength = String(cacheEntry.nameLength, radix: 2)
+            binaryString += String(Array(repeating: "0", count: 12 - nameLength.count).joined() + nameLength)
+            guard let flag1 = UInt8(binaryString.prefix(8), radix: 2), let flag2 = UInt8(binaryString.suffix(8), radix: 2) else {
+                throw GiftKitError.failedCachedObjectFieldsTypeCast
+            }
+            dataBytes += [flag1, flag2]
+
+            guard let pathNameBytes = cacheEntry.pathName.data(using: .ascii) else {
+                throw GiftKitError.failedCachedObjectFieldsTypeCast
+            }
+
+            dataBytes += pathNameBytes
+            dataBytes += Array(repeating: 0x00, count: 8 - (dataBytes.count - entryBegin) % 8)
+        }
+        dataBytes += [0x54, 0x52, 0x45, 0x45] // TREE
+
+        var treeBytes = [UInt8]()
+        // Extensions
+        for cacheTree in cacheTrees {
+            // pathName(ascii) | 0x00 | (if sha? 0x2d) | entryCount(.ascii) | 0x20 | subtreeCount(.ascii) | 0x0a | sha(20byte)
+            if let pathNameByte = cacheTree.pathName.data(using: .ascii) {
+                treeBytes += [UInt8](pathNameByte)
+            }
+            treeBytes += [0x00]
+
+            if cacheTree.sha == nil {
+                treeBytes += [0x2d]
+            }
+
+            if let entryCount = String(cacheTree.entryCount).data(using: .ascii) {
+                treeBytes += [UInt8](entryCount)
+            }
+
+            treeBytes += [0x20]
+
+            if let subtreeCount = String(cacheTree.subtreeCount).data(using: .ascii) {
+                treeBytes += [UInt8](subtreeCount)
+            }
+
+            treeBytes += [0x0a]
+
+            if let sha = cacheTree.sha {
+                treeBytes += try Array(sha).eachSlice(2) { "\($0[0])\($0[1])"}.map {
+                    if let decimal = UInt8($0, radix: 16) {
+                        return decimal
+                    } else {
+                        throw GiftKitError.failedCachedObjectFieldsTypeCast
+                    }
+                }
+            }
+        }
+        dataBytes += hexaToBytes(hexString: String(format: "%08X", treeBytes.count))
+        dataBytes += treeBytes
+
+        // TODO: REUC
+        // TODO: link
+
+        // checksum
+        dataBytes += try Array(Data(bytes: dataBytes).sha1()).eachSlice(2) { "\($0[0])\($0[1])"}.map {
+            if let decimal = UInt8($0, radix: 16) {
+                return decimal
+            } else {
+                throw GiftKitError.failedCachedObjectFieldsTypeCast
+            }
+        }
+
+        try Data(bytes: dataBytes).write(to: indexURL, options: .atomicWrite)
+    }
+
+    private func hexaToBytes(hexString: String) -> [UInt8] {
+        let hexa = Array(hexString)
+        return stride(from: 0, to: hexString.count, by: 2).compactMap { UInt8(String(hexa[$0...$0.advanced(by: 1)]), radix: 16) }
     }
 
     private mutating func parseEntry(dataBytes: [UInt8], index: Int) throws -> Int {
@@ -146,7 +259,7 @@ struct GitIndex {
         }
         index += 4
 
-        guard let size = Int(dataBytes[index..<index+4].map { String(format:"%02X", $0) }.joined(), radix: 16) else {
+        guard let size = UInt64(dataBytes[index..<index+4].map { String(format:"%02X", $0) }.joined(), radix: 16) else {
             throw GiftKitError.indexFileFormatError(message: "binary read error.")
         }
         index += 4
@@ -162,7 +275,7 @@ struct GitIndex {
         let binaryString = Array(Array(repeating: "0", count: 16 - bin.count).joined() + bin)
 
         let assumeValidFlag = binaryString[0] == "1"
-        let extendedFlag = binaryString[1]
+        let extendedFlag = binaryString[1] == "1"
 
         guard let stageFlag = Int(String(binaryString[2..<4]), radix: 2), let nameLength = Int(String(binaryString.suffix(12)), radix: 2) else {
             throw GiftKitError.indexFileFormatError(message: "binary read error.")
@@ -180,7 +293,7 @@ struct GitIndex {
                                caretedAtNanosecond: createdAtMilisecond,
                                updatedAt: Date(timeIntervalSince1970: TimeInterval(updatedAtUnixTime)),
                                updatedAtNanosecond: updatedAtMilisecond,
-                               dev: deviceID,
+                               deviceID: deviceID,
                                inode: inode,
                                mode: mode,
                                uid: uid,
@@ -188,7 +301,7 @@ struct GitIndex {
                                size: size,
                                sha: sha,
                                assumeValidFlag: assumeValidFlag,
-                               extendedFlag: String(extendedFlag),
+                               extendedFlag: extendedFlag,
                                stageFlag: stageFlag,
                                nameLength: nameLength,
                                pathName: filePath)

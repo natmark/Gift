@@ -5,13 +5,15 @@ public struct Repository {
     var workTreeURL: URL
     var gitDirectoryURL: URL
     var config: GitConfig?
-    var index: GitIndex?
+    var index: GitIndex
 
     private init(workTreeURL: URL, checkRepository: Bool = true) throws {
         let disableAllCheck = !checkRepository
 
         self.workTreeURL = workTreeURL
         self.gitDirectoryURL = workTreeURL.appendingPathComponent(".git")
+        let indexURL = gitDirectoryURL.appendingPathComponent("index")
+        self.index = try GitIndex(from: indexURL)
 
         if !disableAllCheck && !gitDirectoryURL.isDirectory {
             throw GiftKitError.notGitRepository(path: workTreeURL)
@@ -22,11 +24,6 @@ public struct Repository {
             self.config = GitConfig(from: configURL)
         } else if !disableAllCheck {
             throw GiftKitError.configFileMissing
-        }
-
-        let indexURL = gitDirectoryURL.appendingPathComponent("index")
-        if indexURL.isExist {
-            self.index = try GitIndex(from: indexURL)
         }
 
         if disableAllCheck { return }
@@ -100,10 +97,60 @@ public struct Repository {
 }
 
 extension Repository {
-    public func stageObject(sha: String) throws {
-        if self.index == nil {
-            var gitIndex = try GitIndex()
+    public mutating func stageObject(fileURL: URL, sha: String) throws {
+        let entryPathComponents = try self.computeSubPathComponents(from: fileURL, base: workTreeURL)
+        let pathName = entryPathComponents.joined(separator: "/")
+
+        let attr = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+        guard
+            let createdAt = attr[.creationDate] as? Date,
+            let updatedAt = attr[.modificationDate] as? Date,
+            let inode = attr[.systemNumber] as? Int,
+            let dev = attr[.systemNumber] as? Int,
+            let posixPermission = attr[.posixPermissions] as? Int,
+            let gid = attr[.groupOwnerAccountID] as? Int,
+            let uid = attr[.ownerAccountID] as? Int,
+            let size = attr[.size] as? UInt64 else {
+                throw GiftKitError.failedReadFileAttributes
         }
+        // TODO: Support object type
+        // https://github.com/gitster/git/blob/master/Documentation/technical/index-format.txt#L63
+        // 1000 regular file
+        // 1010 (symbolic link)
+        // 1100 (git link)
+        let mode = "100" + String(posixPermission, radix: 8)
+        let assumeValidFlag = false
+        let extendedFlag = false
+        let stageFlag = 0
+
+        let entry = CacheEntry(createdAt: createdAt,
+                               caretedAtNanosecond: 0, // TODO: Fix nanosec
+                               updatedAt: updatedAt,
+                               updatedAtNanosecond: 0, // TODO: Fix nanosec
+                               deviceID: dev,
+                               inode: inode,
+                               mode: mode,
+                               uid: uid,
+                               gid: gid,
+                               size: size,
+                               sha: sha,
+                               assumeValidFlag: assumeValidFlag,
+                               extendedFlag: extendedFlag,
+                               stageFlag: stageFlag,
+                               nameLength: pathName.count,
+                               pathName: pathName)
+
+        if let cachedEntryIndex = self.index.cacheEntries.firstIndex(where: { $0.pathName == entry.pathName }) {
+            self.index.cacheEntries.remove(at: cachedEntryIndex)
+            self.index.cacheEntries.append(entry)
+            self.index.cacheEntries.sort { $0.pathName < $1.pathName }
+            try self.updateCachedTree(entryPathComponents: [String](entryPathComponents))
+        } else {
+            self.index.cacheEntries.append(entry)
+            self.index.cacheEntries.sort { $0.pathName < $1.pathName }
+        }
+
+        try self.index.write()
     }
 
     public func resolveObject(name: String) throws -> [String] {
@@ -204,7 +251,7 @@ extension Repository {
         var result = [String: Any]()
 
         for fileURL in try referencePath.contents().sorted(by: { $0.path < $1.path }) {
-            let pathComponents = try computeSubPathComponents(from: fileURL)
+            let pathComponents = try computeSubPathComponents(from: fileURL, base: gitDirectoryURL)
             if fileURL.isDirectory {
                 result[fileURL.lastPathComponent] = try getReferenceList(pathComponents: pathComponents)
             } else {
@@ -286,6 +333,7 @@ extension Repository {
         }
         return castedObject
     }
+
     public func readObject(sha: String) throws -> GitObject {
         // .git/objects/e5/e11e0360d9534b0d3f65085df7c62d8fb8a82b
         // take prefix(2) to make directory (e5)
@@ -382,8 +430,57 @@ extension Repository {
         }
     }
 
-    private func computeSubPathComponents(from subpath: URL) throws -> [String] {
-        let basePathComponents = gitDirectoryURL.pathComponents
+    private mutating func updateCachedTree(entryPathComponents: [String]) throws {
+        let rootCachedTree = self.index.cacheTrees.first(where: { $0.pathName == "" })
+        var updatedSHAList = [String]()
+        var components = [String](entryPathComponents)
+
+        if let rootTreeSHA = rootCachedTree?.sha {
+            updatedSHAList.append(rootTreeSHA)
+            var sha = rootTreeSHA
+
+            while !components.isEmpty {
+                // TODO: Failed resolveing subpath error when access to packed object
+                let treeObject = try self.readObject(type: GitTree.self, sha: sha)
+
+                let identifier: GitObjectType
+                if components.count == 1 {
+                    identifier = .blob
+                } else {
+                    identifier = .tree
+                }
+                let component = components.removeFirst()
+
+                for leaf in treeObject.leafs {
+                    let object = try self.readObject(sha: leaf.sha)
+                    if leaf.path == component && object.identifier == identifier {
+                        updatedSHAList.append(leaf.sha)
+                        sha = leaf.sha
+                    }
+                }
+            }
+        }
+        updatedSHAList.removeLast()
+
+        if updatedSHAList.count != entryPathComponents.count {
+            throw GiftKitError.failedReadGitObject
+        }
+
+        self.index.cacheTrees = self.index.cacheTrees.map { tree in
+            if let sha = tree.sha {
+                if updatedSHAList.contains(sha) {
+                    return CacheTree(entryCount: tree.entryCount, subtreeCount: tree.subtreeCount, pathName: tree.pathName, sha: nil)
+                } else {
+                    return tree
+                }
+            } else {
+                return tree
+            }
+        }
+    }
+
+    private func computeSubPathComponents(from subpath: URL, base: URL) throws -> [String] {
+        let basePathComponents = base.pathComponents
         var subPathComponents = subpath.pathComponents
 
         for component in basePathComponents {

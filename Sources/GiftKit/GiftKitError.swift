@@ -17,6 +17,8 @@ public enum GiftKitError: Error {
     case unsupportedRepositoryFormatVersion(version: String)
     case isNotEmpty(url: URL)
     case isNotDirectory(url: URL)
+    case failedCachedObjectFieldsTypeCast
+    case failedReadFileAttributes
     case failedWriteGitObject
     case failedReadGitObject
     case failedResolvingSubpathName(pathComponents: [String])
@@ -55,6 +57,10 @@ extension GiftKitError: LocalizedError {
             return "\(path.path) is not empty."
         case .isNotDirectory(let path):
             return "\(path.path) is not a directory."
+        case .failedCachedObjectFieldsTypeCast:
+            return "Failed cached object fields type cast"
+        case .failedReadFileAttributes:
+            return "Failed read file attributes."
         case .failedWriteGitObject:
             return "Failed write Git Object."
         case .failedReadGitObject:

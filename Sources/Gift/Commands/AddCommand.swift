@@ -31,7 +31,7 @@ struct AddCommand: CommandProtocol {
             let binaryData = try Data(contentsOf: fileURL, options: [])
             let object = try GitBlob(repository: repository, data: binaryData)
             let sha = try repository.writeObject(object, withActuallyWrite: true)
-            try repository.stageObject(sha: sha)
+            try repository.stageObject(fileURL: fileURL, sha: sha)
         } catch let error {
             fatalError(error.localizedDescription)
         }
