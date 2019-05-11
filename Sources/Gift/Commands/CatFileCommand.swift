@@ -72,17 +72,17 @@ struct CatFileCommand: CommandProtocol {
         return .success(())
     }
 
-    private func printKVLM(kvlm: [String: Any]) {
-        for key in kvlm.keys {
+    private func printKVLM(kvlm: [(key: String, value: Any)]) {
+        for key in kvlm.map({ $0.key }) {
             if key == "" {
                 continue
             }
 
-            var values: [String] = kvlm[key] as? [String]
+            var values: [String] = kvlm.first(where: { $0.key == key})?.value as? [String]
                 ?? []
 
             if values.isEmpty {
-                if let value = kvlm[key] as? String {
+                if let value = kvlm.first(where: { $0.key == key})?.value as? String {
                     values = [value]
                 }
             }
@@ -91,7 +91,7 @@ struct CatFileCommand: CommandProtocol {
         }
 
         print()
-        if let message = kvlm[""] as? String {
+        if let message = kvlm.first(where: { $0.key == ""})?.value as? String {
             print(message)
         }
     }

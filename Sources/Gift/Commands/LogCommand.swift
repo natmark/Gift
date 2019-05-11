@@ -45,15 +45,15 @@ struct LogCommand: CommandProtocol {
             return
         }
 
-        if !commit.kvlm.keys.contains("parent") {
+        if !commit.kvlm.map({$0.key}).contains("parent") {
             // Base case: the initial commit
             return
         }
 
         var parents = [String]()
-        if let value = commit.kvlm["parent"] as? [String] {
+        if let value = commit.kvlm.first(where: {$0.key == "parent"})?.value as? [String] {
             parents = value
-        } else if let value = commit.kvlm["parent"] as? String {
+        } else if let value = commit.kvlm.first(where: {$0.key == "parent"})?.value as? String {
             parents = [value]
         }
 

@@ -8,18 +8,18 @@
 import Foundation
 
 public struct KVLMSerializer {
-    public static func serialize(kvlm: [String: Any]) throws -> Data {
+    public static func serialize(kvlm: [(key: String, value: Any)]) throws -> Data {
         var dataBytes = [UInt8]()
-        for key in kvlm.keys {
+        for key in kvlm.map({ $0.key }) {
             if key == "" {
                 continue
             }
 
-            var values: [String] = kvlm[key] as? [String]
+            var values: [String] = kvlm.first(where: { $0.key == key })?.value as? [String]
                 ?? []
 
             if values.isEmpty {
-                if let value = kvlm[key] as? String {
+                if let value = kvlm.first(where: { $0.key == key })?.value as? String {
                     values = [value]
                 }
             }
@@ -33,7 +33,7 @@ public struct KVLMSerializer {
             }
         }
 
-        guard let message = kvlm[""] as? String, let messageData = message.data(using: .utf8) else {
+        guard let message = kvlm.first(where: { $0.key == "" })?.value as? String, let messageData = message.data(using: .utf8) else {
             throw GiftKitError.failedKVLMTypeCast
         }
         dataBytes += [0x0a] + [UInt8](messageData)
@@ -41,8 +41,8 @@ public struct KVLMSerializer {
         return Data(bytes: dataBytes)
     }
 
-    public static func deserialize(data: Data) throws -> [String: Any] {
-        return try KVLMSerializer.parse(data: data)
+    public static func deserialize(data: Data) throws -> [(key: String, value: Any)] {
+        return try KVLMSerializer.parse(data: data).map { (key: $0.key, value: $0.value) }
     }
 
     private static func parse(data: Data, startIndex: Int = 0, dictionary: [String: Any]? = nil) throws -> [String: Any] {

@@ -149,45 +149,48 @@ struct GitIndex {
             dataBytes += pathNameBytes
             dataBytes += Array(repeating: 0x00, count: 8 - (dataBytes.count - entryBegin) % 8)
         }
-        dataBytes += [0x54, 0x52, 0x45, 0x45] // TREE
 
-        var treeBytes = [UInt8]()
-        // Extensions
-        for cacheTree in cacheTrees {
-            // pathName(ascii) | 0x00 | (if sha? 0x2d) | entryCount(.ascii) | 0x20 | subtreeCount(.ascii) | 0x0a | sha(20byte)
-            if let pathNameByte = cacheTree.pathName.data(using: .ascii) {
-                treeBytes += [UInt8](pathNameByte)
-            }
-            treeBytes += [0x00]
+        if !cacheTrees.isEmpty {
+            dataBytes += [0x54, 0x52, 0x45, 0x45] // TREE
 
-            if cacheTree.sha == nil {
-                treeBytes += [0x2d]
-            }
+            var treeBytes = [UInt8]()
+            // Extensions
+            for cacheTree in cacheTrees {
+                // pathName(ascii) | 0x00 | (if sha? 0x2d) | entryCount(.ascii) | 0x20 | subtreeCount(.ascii) | 0x0a | sha(20byte)
+                if let pathNameByte = cacheTree.pathName.data(using: .ascii) {
+                    treeBytes += [UInt8](pathNameByte)
+                }
+                treeBytes += [0x00]
 
-            if let entryCount = String(cacheTree.entryCount).data(using: .ascii) {
-                treeBytes += [UInt8](entryCount)
-            }
+                if cacheTree.sha == nil {
+                    treeBytes += [0x2d]
+                }
 
-            treeBytes += [0x20]
+                if let entryCount = String(cacheTree.entryCount).data(using: .ascii) {
+                    treeBytes += [UInt8](entryCount)
+                }
 
-            if let subtreeCount = String(cacheTree.subtreeCount).data(using: .ascii) {
-                treeBytes += [UInt8](subtreeCount)
-            }
+                treeBytes += [0x20]
 
-            treeBytes += [0x0a]
+                if let subtreeCount = String(cacheTree.subtreeCount).data(using: .ascii) {
+                    treeBytes += [UInt8](subtreeCount)
+                }
 
-            if let sha = cacheTree.sha {
-                treeBytes += try Array(sha).eachSlice(2) { "\($0[0])\($0[1])"}.map {
-                    if let decimal = UInt8($0, radix: 16) {
-                        return decimal
-                    } else {
-                        throw GiftKitError.failedCachedObjectFieldsTypeCast
+                treeBytes += [0x0a]
+
+                if let sha = cacheTree.sha {
+                    treeBytes += try Array(sha).eachSlice(2) { "\($0[0])\($0[1])"}.map {
+                        if let decimal = UInt8($0, radix: 16) {
+                            return decimal
+                        } else {
+                            throw GiftKitError.failedCachedObjectFieldsTypeCast
+                        }
                     }
                 }
             }
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", treeBytes.count))
+            dataBytes += treeBytes
         }
-        dataBytes += hexaToBytes(hexString: String(format: "%08X", treeBytes.count))
-        dataBytes += treeBytes
 
         // TODO: REUC
         // TODO: link

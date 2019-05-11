@@ -25,7 +25,7 @@ struct CheckoutCommand: CommandProtocol {
             repository = try Repository.find()
             object = try repository.readObject(sha: repository.findObject(name: options.commit))
             if object.identifier == .commit {
-                object = try repository.readObject(sha: (object as! GitCommit).kvlm["tree"] as! String)
+                object = try repository.readObject(sha: (object as! GitCommit).kvlm.first(where: {$0.key == "tree"})?.value as! String)
             }
         } catch let error as GiftKitError {
             return .failure(error)

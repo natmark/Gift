@@ -140,7 +140,8 @@ extension Repository {
             throw GiftKitError.gitAccountNotFound
         }
 
-        var kvlm = [String: Any]()
+        var kvlm = [(key: String, value: Any)]()
+        self.index.cacheTrees.removeAll(where: { $0.sha == nil })
 
         if index.cacheTrees.isEmpty {
             let rootTree = try createTreeLeafs(from: index.cacheEntries, pathComponents: [])
@@ -152,20 +153,20 @@ extension Repository {
             let subtreeCache = CacheTree(entryCount: rootTree.leafs.count, subtreeCount: subtreeCount, pathName: "", sha: sha)
             self.index.cacheTrees.append(subtreeCache)
 
-            kvlm["tree"] = sha
+            kvlm.append((key: "tree", value: sha))
         } else {
-
+            // TODO
         }
 
         if let parent = try? resolveReference(pathComponents: ["HEAD"]) {
-            kvlm["parent"] = parent
+            kvlm.append((key: "parent", value: parent))
         }
 
         let currentTime = "\(Int(Date().timeIntervalSince1970)) \(Repository.timeZoneFormatter.string(from: Date()))"
         let authorIdentity = "\(author.name) <\(author.email)> \(currentTime)"
-        kvlm["author"] = authorIdentity
-        kvlm["committer"] = authorIdentity
-        kvlm[""] = message
+        kvlm.append((key: "author", value: authorIdentity))
+        kvlm.append((key: "committer", value: authorIdentity))
+        kvlm.append((key: "", value: message))
 
         var commit = try GitCommit(repository: self, data: nil)
         commit.kvlm = kvlm
@@ -205,13 +206,8 @@ extension Repository {
             // S_IFDIR    0040000   directory
             let subtreeLeaf = GitTreeLeaf(mode: "040000", path: key, sha: sha)
 
-            let pathName = (pathComponents + [key]).joined(separator: "/")
-            if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == pathName }) {
-                self.index.cacheTrees.remove(at: index)
-            }
-
             let subtreeCount = subtree.leafs.map { try? readObject(sha: $0.sha).identifier == .tree }.count
-            let subtreeCache = CacheTree(entryCount: subtree.leafs.count, subtreeCount: subtreeCount, pathName: pathName, sha: sha)
+            let subtreeCache = CacheTree(entryCount: subtree.leafs.count, subtreeCount: subtreeCount, pathName: key, sha: sha)
             self.index.cacheTrees.append(subtreeCache)
             tree.leafs.append(subtreeLeaf)
         }
@@ -275,6 +271,7 @@ extension Repository {
         } else {
             self.index.cacheEntries.append(entry)
             self.index.cacheEntries.sort { $0.pathName < $1.pathName }
+            try self.updateCachedTree(entryPathComponents: [String](entryPathComponents))
         }
 
         try self.index.write()
@@ -341,16 +338,18 @@ extension Repository {
         
         if createTagObject {
             var tag = try GitTag(repository: self, data: nil)
-            tag.kvlm = [:]
-            tag.kvlm["object"] = sha
-            tag.kvlm["type"] = "commit"
-            tag.kvlm["tag"] = name
+            var kvlm = [(key: String, value: Any)]()
+
+            kvlm.append((key: "object", value: sha))
+            kvlm.append((key: "type", value: "commit"))
+            kvlm.append((key: "tag", value: name))
 
             guard let tagger = author else {
                 throw GiftKitError.gitAccountNotFound
             }
-            tag.kvlm["tagger"] = "\(tagger.name) <\(tagger.email)>"
-            tag.kvlm[""] = "This is the commit message that should have come from the user\n"
+            kvlm.append((key: "tagger", value: "\(tagger.name) <\(tagger.email)>"))
+            kvlm.append((key: "", value: "This is the commit message that should have come from the user\n"))
+            tag.kvlm = kvlm
             let tagSHA = try writeObject(tag)
             try createReference(pathComponents: ["tags", name], sha: tagSHA)
         } else {
@@ -544,12 +543,12 @@ extension Repository {
             }
 
             if let tag = object as? GitTag {
-                guard let shaObject = tag.kvlm["object"] as? String else {
+                guard let shaObject = tag.kvlm.first(where: { $0.key == "object" })?.value as? String else {
                     throw GiftKitError.failedKVLMTypeCast
                 }
                 sha = shaObject
             } else if let commit = object as? GitCommit, type == .tree {
-                guard let shaObject = commit.kvlm["tree"] as? String else {
+                guard let shaObject = commit.kvlm.first(where: { $0.key == "tree" })?.value as? String else {
                     throw GiftKitError.failedKVLMTypeCast
                 }
                 sha = shaObject
@@ -560,39 +559,23 @@ extension Repository {
     }
 
     private mutating func updateCachedTree(entryPathComponents: [String]) throws {
-        let rootCachedTree = self.index.cacheTrees.first(where: { $0.pathName == "" })
         var updatedSHAList = [String]()
-        var components = [String](entryPathComponents)
+        var components = [""] + [String](entryPathComponents)
 
-        if let rootTreeSHA = rootCachedTree?.sha {
+        if let rootTreeSHA = self.index.cacheTrees.first?.sha {
             updatedSHAList.append(rootTreeSHA)
-            var sha = rootTreeSHA
+        }
 
-            while !components.isEmpty {
-                // TODO: Failed resolveing subpath error when access to packed object
-                let treeObject = try self.readObject(type: GitTree.self, sha: sha)
-
-                let identifier: GitObjectType
-                if components.count == 1 {
-                    identifier = .blob
-                } else {
-                    identifier = .tree
-                }
-                let component = components.removeFirst()
-
-                for leaf in treeObject.leafs {
-                    let object = try self.readObject(sha: leaf.sha)
-                    if leaf.path == component && object.identifier == identifier {
-                        updatedSHAList.append(leaf.sha)
-                        sha = leaf.sha
-                    }
+        for cacheTree in index.cacheTrees {
+            if components.count == 1 {
+                components.removeAll()
+            }
+            if cacheTree.pathName == components.first {
+                components = [String](components.dropFirst())
+                if let sha = cacheTree.sha {
+                    updatedSHAList.append(sha)
                 }
             }
-        }
-        updatedSHAList.removeLast()
-
-        if updatedSHAList.count != entryPathComponents.count {
-            throw GiftKitError.failedReadGitObject
         }
 
         self.index.cacheTrees = self.index.cacheTrees.map { tree in
