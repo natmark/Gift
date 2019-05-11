@@ -15,6 +15,7 @@ public enum GiftKitError: Error {
     case configFileMissing
     case indexFileFormatError(message: String)
     case unsupportedRepositoryFormatVersion(version: String)
+    case gitAccountNotFound
     case isNotEmpty(url: URL)
     case isNotDirectory(url: URL)
     case failedCachedObjectFieldsTypeCast
@@ -53,6 +54,18 @@ extension GiftKitError: LocalizedError {
             return "Index file format error. \(message)"
         case .unsupportedRepositoryFormatVersion(let version):
             return "Unsupported repositoryformatversion \(version)."
+        case .gitAccountNotFound:
+            return """
+            *** Please tell me who you are.
+
+            Run
+
+            git config --global user.email "you@example.com"
+            git config --global user.name "Your Name"
+
+            to set your account's default identity.
+            Omit --global to set the identity only in this repository.
+            """
         case .isNotEmpty(let path):
             return "\(path.path) is not empty."
         case .isNotDirectory(let path):

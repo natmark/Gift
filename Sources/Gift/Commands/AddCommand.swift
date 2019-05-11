@@ -22,8 +22,10 @@ struct AddCommand: CommandProtocol {
         let repository: Repository
         do {
             repository = try Repository.find()
+        } catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         let fileURL = URL(fileURLWithPath: options.path)
@@ -32,8 +34,10 @@ struct AddCommand: CommandProtocol {
             let object = try GitBlob(repository: repository, data: binaryData)
             let sha = try repository.writeObject(object, withActuallyWrite: true)
             try repository.stageObject(fileURL: fileURL, sha: sha)
+        }  catch let error as GiftKitError {
+            return .failure(error)
         } catch let error {
-            fatalError(error.localizedDescription)
+            return .failure(.unknown(message: error.localizedDescription))
         }
 
         return .success(())

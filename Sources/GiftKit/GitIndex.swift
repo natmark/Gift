@@ -109,9 +109,9 @@ struct GitIndex {
         // Entries
         for cacheEntry in cacheEntries {
             entryBegin = dataBytes.count
-            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.createdAt.timeIntervalSince1970)) // createdAtUnixTime
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", Int(cacheEntry.createdAt.timeIntervalSince1970))) // createdAtUnixTime
             dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.caretedAtNanosecond)) // createdAtNanosec
-            dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.updatedAt.timeIntervalSince1970)) // updatedAtUnixTime
+            dataBytes += hexaToBytes(hexString: String(format: "%08X", Int(cacheEntry.updatedAt.timeIntervalSince1970))) // updatedAtUnixTime
             dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.updatedAtNanosecond)) // updatedAtNanosec
             dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.deviceID)) // deviceID
             dataBytes += hexaToBytes(hexString: String(format: "%08X", cacheEntry.inode)) // inode

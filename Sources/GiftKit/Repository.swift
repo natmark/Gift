@@ -5,6 +5,7 @@ public struct Repository {
     var workTreeURL: URL
     var gitDirectoryURL: URL
     var config: GitConfig?
+    var globalConfig: GitConfig?
     var index: GitIndex
 
     private init(workTreeURL: URL, checkRepository: Bool = true) throws {
@@ -24,6 +25,18 @@ public struct Repository {
             self.config = GitConfig(from: configURL)
         } else if !disableAllCheck {
             throw GiftKitError.configFileMissing
+        }
+
+        let homeDirURL: URL
+        if #available(OSX 10.12, *) {
+            homeDirURL = FileManager.default.homeDirectoryForCurrentUser
+        } else {
+            homeDirURL = URL(fileURLWithPath: NSHomeDirectory())
+        }
+
+        let globalConfigURL = homeDirURL.appendingPathComponent(".gitconfig")
+        if globalConfigURL.isExist {
+            self.config = GitConfig(from: globalConfigURL)
         }
 
         if disableAllCheck { return }
@@ -97,6 +110,120 @@ public struct Repository {
 }
 
 extension Repository {
+    private var author: GitUser? {
+        var authorEmail: String?
+        var authorName: String?
+
+        if let email = self.config?["user"]?["email"] {
+            authorEmail = email
+        }
+        if let email = self.globalConfig?["user"]?["email"] {
+            authorEmail = email
+        }
+        if let name = self.config?["user"]?["name"] {
+            authorName = name
+        }
+        if let name = self.globalConfig?["user"]?["name"] {
+            authorName = name
+        }
+        return GitUser(email: authorEmail, name: authorName)
+    }
+
+    private static let timeZoneFormatter: DateFormatter = {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "Z"
+        return dateFormatter
+    }()
+
+    public mutating func commit(message: String) throws {
+        guard let author = author else {
+            throw GiftKitError.gitAccountNotFound
+        }
+
+        var kvlm = [String: Any]()
+
+        if index.cacheTrees.isEmpty {
+            let rootTree = try createTreeLeafs(from: index.cacheEntries, pathComponents: [])
+            let sha = try writeObject(rootTree)
+            if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == "" }) {
+                self.index.cacheTrees.remove(at: index)
+            }
+            let subtreeCount = rootTree.leafs.map { try? readObject(sha: $0.sha).identifier == .tree }.count
+            let subtreeCache = CacheTree(entryCount: rootTree.leafs.count, subtreeCount: subtreeCount, pathName: "", sha: sha)
+            self.index.cacheTrees.append(subtreeCache)
+
+            kvlm["tree"] = sha
+        } else {
+
+        }
+
+        if let parent = try? resolveReference(pathComponents: ["HEAD"]) {
+            kvlm["parent"] = parent
+        }
+
+        let currentTime = "\(Int(Date().timeIntervalSince1970)) \(Repository.timeZoneFormatter.string(from: Date()))"
+        let authorIdentity = "\(author.name) <\(author.email)> \(currentTime)"
+        kvlm["author"] = authorIdentity
+        kvlm["committer"] = authorIdentity
+        kvlm[""] = message
+
+        var commit = try GitCommit(repository: self, data: nil)
+        commit.kvlm = kvlm
+        let sha = try writeObject(commit)
+
+        guard let fileURL = try computeSubFilePathFromPathComponents(["HEAD"]) else {
+            throw GiftKitError.failedResolvingSubpathName(pathComponents: ["HEAD"])
+        }
+        let HEAD = try String(contentsOf: fileURL).replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: "ref: ", with: "")
+
+        try createReference(pathComponents: convertPathComponents(from: HEAD, baseComponents: ["refs"]), sha: sha)
+
+        self.index.cacheEntries.sort { $0.pathName < $1.pathName }
+        try self.index.write()
+    }
+
+    private mutating func createTreeLeafs(from cacheEntries: [CacheEntry], pathComponents: [String]) throws -> GitTree {
+
+        let fileEntries = cacheEntries.filter{ convertPathComponents(from: $0.pathName, baseComponents: pathComponents).count == 1 }
+        let subtreeEntries = cacheEntries.filter { convertPathComponents(from: $0.pathName, baseComponents: pathComponents).count > 1 }
+
+        var subtreeDictionary = [String: [CacheEntry]]()
+        for subtreeEntry in subtreeEntries {
+            let key = convertPathComponents(from: subtreeEntry.pathName, baseComponents: pathComponents).first!
+            if let values = subtreeDictionary[key] {
+                subtreeDictionary[key] = values + [subtreeEntry]
+            } else {
+                subtreeDictionary[key] = [subtreeEntry]
+            }
+        }
+
+        var tree = try GitTree(repository: self, data: nil)
+
+        for (key, value) in subtreeDictionary {
+            let subtree = try createTreeLeafs(from: value, pathComponents: pathComponents + [key])
+            let sha = try writeObject(subtree)
+            // S_IFDIR    0040000   directory
+            let subtreeLeaf = GitTreeLeaf(mode: "040000", path: key, sha: sha)
+
+            let pathName = (pathComponents + [key]).joined(separator: "/")
+            if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == pathName }) {
+                self.index.cacheTrees.remove(at: index)
+            }
+
+            let subtreeCount = subtree.leafs.map { try? readObject(sha: $0.sha).identifier == .tree }.count
+            let subtreeCache = CacheTree(entryCount: subtree.leafs.count, subtreeCount: subtreeCount, pathName: pathName, sha: sha)
+            self.index.cacheTrees.append(subtreeCache)
+            tree.leafs.append(subtreeLeaf)
+        }
+
+        for fileEntry in fileEntries {
+            let leaf = GitTreeLeaf(mode: fileEntry.mode, path: convertPathComponents(from: fileEntry.pathName, baseComponents: pathComponents).last!, sha: fileEntry.sha)
+            tree.leafs.append(leaf)
+        }
+
+        return tree
+    }
+
     public mutating func stageObject(fileURL: URL, sha: String) throws {
         let entryPathComponents = try self.computeSubPathComponents(from: fileURL, base: workTreeURL)
         let pathName = entryPathComponents.joined(separator: "/")
@@ -207,7 +334,6 @@ extension Repository {
 
         return candidates
     }
-    
 
     public func createTag(name: String, reference: String, withActuallyCreate createTagObject: Bool) throws {
 
@@ -219,8 +345,11 @@ extension Repository {
             tag.kvlm["object"] = sha
             tag.kvlm["type"] = "commit"
             tag.kvlm["tag"] = name
-            // TODO: Fix tagger
-            tag.kvlm["tagger"] = "Author Name <author@git.com>"
+
+            guard let tagger = author else {
+                throw GiftKitError.gitAccountNotFound
+            }
+            tag.kvlm["tagger"] = "\(tagger.name) <\(tagger.email)>"
             tag.kvlm[""] = "This is the commit message that should have come from the user\n"
             let tagSHA = try writeObject(tag)
             try createReference(pathComponents: ["tags", name], sha: tagSHA)
@@ -477,6 +606,16 @@ extension Repository {
                 return tree
             }
         }
+    }
+
+    private func convertPathComponents(from pathName: String, baseComponents: [String]) -> [String] {
+        var components = pathName.split(separator: "/").map { String($0) }
+        for baseComponent in baseComponents {
+            if let first = components.first, baseComponent == first {
+                components = Array(components.dropFirst())
+            }
+        }
+        return components
     }
 
     private func computeSubPathComponents(from subpath: URL, base: URL) throws -> [String] {
