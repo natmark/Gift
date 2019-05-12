@@ -22,6 +22,7 @@ public enum GiftKitError: Error {
     case failedReadFileAttributes
     case failedWriteGitObject
     case failedReadGitObject
+    case failedReadCachedObject
     case failedResolvingSubpathName(pathComponents: [String])
     case failedDecompressedObjectData
     case failedCompressedObjectData
@@ -78,6 +79,8 @@ extension GiftKitError: LocalizedError {
             return "Failed write Git Object."
         case .failedReadGitObject:
             return "Failed read Git Object."
+        case .failedReadCachedObject:
+            return "Failed read cached object."
         case .failedResolvingSubpathName(let pathComponents):
             return "Failed resolving subpath:" + pathComponents.joined(separator: "/")
         case .failedDecompressedObjectData:

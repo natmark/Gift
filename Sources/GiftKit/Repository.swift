@@ -147,7 +147,7 @@ extension Repository {
                 // Dummy
                 self.index.cacheTrees.append(CacheTree(entryCount: 0, subtreeCount: 0, pathName: "", sha: nil))
             }
-            let rootTree = try createTreeLeafs(from: index.cacheEntries, pathComponents: [])
+            let rootTree = try createTree(from: index.cacheEntries, pathComponents: [])
             let sha = try writeObject(rootTree)
             let subtreeCount = rootTree.leafs.filter ({
                 if let object = try? readObject(sha: $0.sha) {
@@ -163,7 +163,58 @@ extension Repository {
 
             kvlm.append((key: "tree", value: sha))
         } else {
-            // TODO
+            var currentPathComponents: [String] = []
+            var cachedTreePath: [String] = []
+
+            for cachedTree in self.index.cacheTrees {
+                if workTreeURL.appendingPathComponents(pathComponents: currentPathComponents + [cachedTree.pathName]).isExist {
+                    currentPathComponents.append(cachedTree.pathName)
+                } else {
+                    while workTreeURL.appendingPathComponents(pathComponents: currentPathComponents + [cachedTree.pathName]).isExist {
+                        currentPathComponents.removeLast()
+                    }
+                    currentPathComponents.append(cachedTree.pathName)
+                }
+                cachedTreePath.append(currentPathComponents.dropFirst().joined(separator: "/"))
+            }
+
+            for (i, (cacheTree, path)) in zip(self.index.cacheTrees, cachedTreePath).reversed().enumerated() {
+                let cachedTreeIndex = self.index.cacheTrees.count - i - 1
+                if cacheTree.sha != nil {
+                    continue
+                }
+
+                var leafs = [GitTreeLeaf]()
+                // Entries
+                let filteredEntries = self.index.cacheEntries.filter({ $0.pathName.hasPrefix(path) && !$0.pathName.replacingOccurrences(of: path, with: "").contains("/") })
+                for filteredCacheEntry in filteredEntries {
+                    let leaf = GitTreeLeaf(mode: filteredCacheEntry.mode, path: filteredCacheEntry.pathName.replacingOccurrences(of: path, with: ""), sha: filteredCacheEntry.sha)
+                    leafs.append(leaf)
+                }
+
+                let filteredCacheTrees = zip(self.index.cacheTrees, cachedTreePath).filter({$0.1 != path && $0.1.hasPrefix(path) && !$0.1.replacingOccurrences(of: path, with: "").contains("/")}).map({$0.0})
+                // Trees
+                for filteredCacheTree in filteredCacheTrees {
+                    guard let sha = filteredCacheTree.sha else {
+                        throw GiftKitError.failedReadGitObject
+                    }
+                    // S_IFDIR    0040000   directory
+                    let leaf = GitTreeLeaf(mode: "040000", path: filteredCacheTree.pathName, sha: sha)
+                    leafs.append(leaf)
+                }
+
+                var tree = try GitTree(repository: self, data: nil)
+                tree.leafs = leafs
+                let sha = try writeObject(tree)
+
+                let cacheTree = CacheTree(entryCount: filteredEntries.count, subtreeCount: filteredCacheTrees.count, pathName: cacheTree.pathName, sha: sha)
+                self.index.cacheTrees[cachedTreeIndex] = cacheTree
+
+                // rootObject
+                if cacheTree.pathName == "" {
+                    kvlm.append((key: "tree", value: sha))
+                }
+            }
         }
 
         if let parent = try? resolveReference(pathComponents: ["HEAD"]) {
@@ -191,7 +242,7 @@ extension Repository {
         try self.index.write()
     }
 
-    private mutating func createTreeLeafs(from cacheEntries: [CacheEntry], pathComponents: [String]) throws -> GitTree {
+    private mutating func createTree(from cacheEntries: [CacheEntry], pathComponents: [String]) throws -> GitTree {
 
         let fileEntries = cacheEntries.filter{ convertPathComponents(from: $0.pathName, baseComponents: pathComponents).count == 1 }
         let subtreeEntries = cacheEntries.filter { convertPathComponents(from: $0.pathName, baseComponents: pathComponents).count > 1 }
@@ -214,7 +265,7 @@ extension Repository {
                 self.index.cacheTrees.append(CacheTree(entryCount: 0, subtreeCount: 0, pathName: key, sha: nil))
             }
 
-            let subtree = try createTreeLeafs(from: value, pathComponents: pathComponents + [key])
+            let subtree = try createTree(from: value, pathComponents: pathComponents + [key])
             let sha = try writeObject(subtree)
             // S_IFDIR    0040000   directory
             let subtreeLeaf = GitTreeLeaf(mode: "040000", path: key, sha: sha)
