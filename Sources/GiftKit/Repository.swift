@@ -141,14 +141,14 @@ extension Repository {
         }
 
         var kvlm = [(key: String, value: Any)]()
-        self.index.cacheTrees.removeAll(where: { $0.sha == nil })
 
         if index.cacheTrees.isEmpty {
+            if self.index.cacheTrees.firstIndex(where: { $0.pathName == "" }) == nil {
+                // Dummy
+                self.index.cacheTrees.append(CacheTree(entryCount: 0, subtreeCount: 0, pathName: "", sha: nil))
+            }
             let rootTree = try createTreeLeafs(from: index.cacheEntries, pathComponents: [])
             let sha = try writeObject(rootTree)
-            if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == "" }) {
-                self.index.cacheTrees.remove(at: index)
-            }
             let subtreeCount = rootTree.leafs.filter ({
                 if let object = try? readObject(sha: $0.sha) {
                     return object.identifier == .tree
@@ -156,7 +156,10 @@ extension Repository {
                 return false
             }).count
             let subtreeCache = CacheTree(entryCount: rootTree.leafs.count, subtreeCount: subtreeCount, pathName: "", sha: sha)
-            self.index.cacheTrees.append(subtreeCache)
+
+            if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == ""}) {
+                self.index.cacheTrees[index] = subtreeCache
+            }
 
             kvlm.append((key: "tree", value: sha))
         } else {
@@ -193,19 +196,24 @@ extension Repository {
         let fileEntries = cacheEntries.filter{ convertPathComponents(from: $0.pathName, baseComponents: pathComponents).count == 1 }
         let subtreeEntries = cacheEntries.filter { convertPathComponents(from: $0.pathName, baseComponents: pathComponents).count > 1 }
 
-        var subtreeDictionary = [String: [CacheEntry]]()
+        var subtreeKeyValues = [(key: String, value: [CacheEntry])]()
         for subtreeEntry in subtreeEntries {
             let key = convertPathComponents(from: subtreeEntry.pathName, baseComponents: pathComponents).first!
-            if let values = subtreeDictionary[key] {
-                subtreeDictionary[key] = values + [subtreeEntry]
+            if let index = subtreeKeyValues.firstIndex(where: { $0.key == key }) {
+                subtreeKeyValues[index] = (key: key, value: subtreeKeyValues[index].value + [subtreeEntry])
             } else {
-                subtreeDictionary[key] = [subtreeEntry]
+                subtreeKeyValues.append((key: key, value: [subtreeEntry]))
             }
         }
 
         var tree = try GitTree(repository: self, data: nil)
 
-        for (key, value) in subtreeDictionary {
+        for (key, value) in subtreeKeyValues {
+            if self.index.cacheTrees.firstIndex(where: { $0.pathName == key }) == nil {
+                // Dummy
+                self.index.cacheTrees.append(CacheTree(entryCount: 0, subtreeCount: 0, pathName: key, sha: nil))
+            }
+
             let subtree = try createTreeLeafs(from: value, pathComponents: pathComponents + [key])
             let sha = try writeObject(subtree)
             // S_IFDIR    0040000   directory
@@ -218,7 +226,9 @@ extension Repository {
                 return false
                 }).count
             let subtreeCache = CacheTree(entryCount: subtree.leafs.count, subtreeCount: subtreeCount, pathName: key, sha: sha)
-            self.index.cacheTrees.append(subtreeCache)
+            if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == key}) {
+                self.index.cacheTrees[index] = subtreeCache
+            }
             tree.leafs.append(subtreeLeaf)
         }
 
