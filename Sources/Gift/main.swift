@@ -14,6 +14,7 @@ registry.register(ShowRefCommand())
 registry.register(TagCommand())
 registry.register(RevParseCommand())
 registry.register(AddCommand())
+registry.register(CommitCommand())
 
 let helpCommand = HelpCommand(registry: registry)
 registry.register(helpCommand)

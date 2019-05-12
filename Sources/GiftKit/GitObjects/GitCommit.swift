@@ -9,11 +9,11 @@ import Foundation
 
 public protocol KVLMContract {
     // Key-Value List with Message
-    var kvlm: [String: Any] { set get }
+    var kvlm: [(key: String, value: Any)] { set get }
 }
 
 public struct GitCommit: GitObject, KVLMContract {
-    public var kvlm: [String: Any] = [:]
+    public var kvlm: [(key: String, value: Any)] = []
     public var identifier: GitObjectType {
         return .commit
     }

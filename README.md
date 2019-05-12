@@ -18,6 +18,7 @@ Available commands:
    add           Add file contents to the index
    cat-file      Provide content of repository objects
    checkout      Checkout a commit inside of a directory.
+   commit        Record changes to the repository
    hash-object   Compute object ID and optionally creates a blob from a file
    help          Display general or command-specific help
    init          Create an empty Git repository or reinitialize an existing one

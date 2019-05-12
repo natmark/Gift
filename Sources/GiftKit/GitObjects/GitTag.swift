@@ -8,7 +8,7 @@
 import Foundation
 
 public struct GitTag: GitObject, KVLMContract {
-    public var kvlm: [String: Any] = [:]
+    public var kvlm: [(key: String, value: Any)] = []
     public var identifier: GitObjectType {
         return .tag
     }
