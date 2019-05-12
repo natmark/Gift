@@ -149,7 +149,12 @@ extension Repository {
             if let index = self.index.cacheTrees.firstIndex(where: { $0.pathName == "" }) {
                 self.index.cacheTrees.remove(at: index)
             }
-            let subtreeCount = rootTree.leafs.map { try? readObject(sha: $0.sha).identifier == .tree }.count
+            let subtreeCount = rootTree.leafs.filter ({
+                if let object = try? readObject(sha: $0.sha) {
+                    return object.identifier == .tree
+                }
+                return false
+            }).count
             let subtreeCache = CacheTree(entryCount: rootTree.leafs.count, subtreeCount: subtreeCount, pathName: "", sha: sha)
             self.index.cacheTrees.append(subtreeCache)
 
@@ -206,7 +211,12 @@ extension Repository {
             // S_IFDIR    0040000   directory
             let subtreeLeaf = GitTreeLeaf(mode: "040000", path: key, sha: sha)
 
-            let subtreeCount = subtree.leafs.map { try? readObject(sha: $0.sha).identifier == .tree }.count
+            let subtreeCount = subtree.leafs.filter({
+                if let object = try? readObject(sha: $0.sha) {
+                    return object.identifier == .tree
+                }
+                return false
+                }).count
             let subtreeCache = CacheTree(entryCount: subtree.leafs.count, subtreeCount: subtreeCount, pathName: key, sha: sha)
             self.index.cacheTrees.append(subtreeCache)
             tree.leafs.append(subtreeLeaf)
